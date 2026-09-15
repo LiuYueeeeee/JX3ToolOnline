@@ -488,6 +488,7 @@
     const BACKGROUND_DATABASE_NAME = 'ps-online-backgrounds';
     const BACKGROUND_DATABASE_STORE = 'libraries';
     const BACKGROUND_DATABASE_RECORD = 'current';
+    const BACKGROUND_SELECTION_RECORD = 'selected';
     const LAYER_NAMES = { background: '背景', frame: 'Frame', cover: 'Cover', title: 'Title', watermask: 'Watermask' };
 
     let backgroundSaveQueue = Promise.resolve();
@@ -1229,10 +1230,20 @@
       const database = await openBackgroundDatabase();
       return new Promise((resolve, reject) => {
         const transaction = database.transaction(BACKGROUND_DATABASE_STORE, 'readonly');
-        const request = transaction.objectStore(BACKGROUND_DATABASE_STORE).get(BACKGROUND_DATABASE_RECORD);
-        request.onsuccess = () => resolve(request.result || null);
-        request.onerror = () => reject(request.error || new Error('Unable to read saved backgrounds'));
-        transaction.oncomplete = () => database.close();
+        const store = transaction.objectStore(BACKGROUND_DATABASE_STORE);
+        const libraryRequest = store.get(BACKGROUND_DATABASE_RECORD);
+        const selectionRequest = store.get(BACKGROUND_SELECTION_RECORD);
+        let library = null;
+        let selectedId = null;
+        libraryRequest.onsuccess = () => { library = libraryRequest.result || null; };
+        selectionRequest.onsuccess = () => { selectedId = selectionRequest.result?.selectedId || null; };
+        libraryRequest.onerror = () => reject(libraryRequest.error || new Error('Unable to read saved backgrounds'));
+        selectionRequest.onerror = () => reject(selectionRequest.error || new Error('Unable to read saved background selection'));
+        transaction.oncomplete = () => {
+          database.close();
+          if (library && selectedId) library.selectedId = selectedId;
+          resolve(library);
+        };
         transaction.onabort = () => { database.close(); reject(transaction.error || new Error('Background read was aborted')); };
       });
     }
@@ -1241,10 +1252,23 @@
       const database = await openBackgroundDatabase();
       return new Promise((resolve, reject) => {
         const transaction = database.transaction(BACKGROUND_DATABASE_STORE, 'readwrite');
-        transaction.objectStore(BACKGROUND_DATABASE_STORE).put(snapshot, BACKGROUND_DATABASE_RECORD);
+        const store = transaction.objectStore(BACKGROUND_DATABASE_STORE);
+        store.put(snapshot, BACKGROUND_DATABASE_RECORD);
+        store.put({ selectedId: snapshot.selectedId }, BACKGROUND_SELECTION_RECORD);
         transaction.oncomplete = () => { database.close(); resolve(); };
         transaction.onerror = () => { database.close(); reject(transaction.error || new Error('Unable to save backgrounds')); };
         transaction.onabort = () => { database.close(); reject(transaction.error || new Error('Background save was aborted')); };
+      });
+    }
+
+    async function saveBackgroundSelection(selectedId) {
+      const database = await openBackgroundDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = database.transaction(BACKGROUND_DATABASE_STORE, 'readwrite');
+        transaction.objectStore(BACKGROUND_DATABASE_STORE).put({ selectedId }, BACKGROUND_SELECTION_RECORD);
+        transaction.oncomplete = () => { database.close(); resolve(); };
+        transaction.onerror = () => { database.close(); reject(transaction.error || new Error('Unable to save background selection')); };
+        transaction.onabort = () => { database.close(); reject(transaction.error || new Error('Background selection save was aborted')); };
       });
     }
 
@@ -1266,6 +1290,19 @@
           // 极少数禁用 IndexedDB 的环境仍尝试旧存储，保留基础可用性。
           console.warn('Unable to persist backgrounds with IndexedDB', error);
           try { localStorage.setItem(BACKGROUND_STORAGE_KEY, JSON.stringify(snapshot)); }
+          catch (fallbackError) { console.warn('Unable to persist backgrounds with localStorage', fallbackError); }
+        });
+      return backgroundSaveQueue;
+    }
+
+    function persistBackgroundSelection() {
+      const selectedId = state.currentBackgroundId;
+      backgroundSaveQueue = backgroundSaveQueue
+        .catch(() => {})
+        .then(() => saveBackgroundSelection(selectedId))
+        .catch((error) => {
+          console.warn('Unable to persist background selection with IndexedDB', error);
+          try { localStorage.setItem(BACKGROUND_STORAGE_KEY, JSON.stringify(backgroundSnapshot())); }
           catch (fallbackError) { console.warn('Unable to persist backgrounds with localStorage', fallbackError); }
         });
       return backgroundSaveQueue;
@@ -1310,9 +1347,9 @@
       state.backgrounds = state.backgrounds.filter((record) => record.id !== id);
       if (deletingCurrent) {
         const next = state.backgrounds[0] || null;
-        state.currentBackgroundId = null;
-        if (next) setBackground(next, false);
-        else els.backgroundLayer.style.backgroundImage = '';
+        state.currentBackgroundId = next?.id || null;
+        els.backgroundLayer.style.backgroundImage = next ? `url("${next.url}")` : '';
+        applyLayerEffects('background');
       }
       renderBackgrounds();
       persistBackgrounds();
@@ -1327,6 +1364,7 @@
       state.backgrounds.forEach((record) => {
         const card = document.createElement('div');
         card.className = `image-card background-card${record.id === state.currentBackgroundId ? ' active' : ''}`;
+        card.dataset.backgroundId = record.id;
         const image = document.createElement('img'); image.src = record.url; image.alt = record.name; image.draggable = false;
         const name = document.createElement('span'); name.className = 'image-name'; name.textContent = record.name;
         const select = document.createElement('button'); select.type = 'button'; select.className = 'background-select'; select.setAttribute('aria-label', `使用背景 ${record.name}`);
@@ -1337,12 +1375,20 @@
         els.backgroundList.appendChild(card);
       });
     }
+    function updateBackgroundSelection() {
+      const cards = els.backgroundList.querySelectorAll('.background-card[data-background-id]');
+      if (cards.length !== state.backgrounds.length) {
+        renderBackgrounds();
+        return;
+      }
+      cards.forEach((card) => card.classList.toggle('active', card.dataset.backgroundId === state.currentBackgroundId));
+    }
     function setBackground(record, shouldPersist = true) {
       state.currentBackgroundId = record.id;
       els.backgroundLayer.style.backgroundImage = `url("${record.url}")`;
       applyLayerEffects('background');
-      renderBackgrounds();
-      if (shouldPersist) persistBackgrounds();
+      updateBackgroundSelection();
+      if (shouldPersist) persistBackgroundSelection();
     }
 
     function renderGallery() {
@@ -1474,7 +1520,10 @@
     els.backgroundInput.addEventListener('change', async (event) => {
       const records = await readRecords(event.target.files, 'background');
       state.backgrounds.push(...records);
-      if (records.length) setBackground(records.at(-1));
+      if (records.length) {
+        setBackground(records.at(-1), false);
+        persistBackgrounds();
+      }
       event.target.value = '';
     });
     ['dragenter', 'dragover'].forEach((eventName) => els.backgroundUpload.addEventListener(eventName, (event) => { event.preventDefault(); els.backgroundUpload.classList.add('dragging'); }));
@@ -1482,7 +1531,10 @@
     els.backgroundUpload.addEventListener('drop', async (event) => {
       const records = await readRecords(event.dataTransfer.files, 'background');
       state.backgrounds.push(...records);
-      if (records.length) setBackground(records.at(-1));
+      if (records.length) {
+        setBackground(records.at(-1), false);
+        persistBackgrounds();
+      }
     });
     els.galleryUpload.addEventListener('click', () => els.galleryInput.click());
     els.galleryUpload.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); els.galleryInput.click(); } });
