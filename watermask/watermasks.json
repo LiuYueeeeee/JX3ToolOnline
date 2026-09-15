@@ -3,6 +3,10 @@
     {
       "name": "watermask01",
       "source": "watermask/watermask01.png"
+    },
+    {
+      "name": "watermask02",
+      "source": "watermask/watermask02.png"
     }
   ]
 }
