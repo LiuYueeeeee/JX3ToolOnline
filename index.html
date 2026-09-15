@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>模板海报工作台</title>
+  <title>小叽最最最最努力了</title>
   <style>
     :root {
       --page: #090b10;
@@ -278,10 +278,10 @@
     .background-card .image-name { pointer-events: none; }
 
     .layer-window { margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(10,13,20,.55); }
-    .layer-window-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .layer-window-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 28px; margin-bottom: 10px; }
     .layer-window h2 { margin: 0; font-size: 13px; }
     .layer-window small { color: var(--muted); font-size: 11px; }
-    .layer-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+    .layer-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
     .layer-row { display: flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 7px; cursor: pointer; color: var(--muted); border: 1px solid var(--line); border-radius: 8px; background: #202636; }
     .layer-row.active { color: #f2edff; border-color: #a58eff; background: var(--accent-soft); }
     .layer-row.is-hidden { opacity: .5; text-decoration: line-through; }
@@ -290,8 +290,10 @@
     .layer-control label { display: flex; justify-content: space-between; gap: 5px; }
     .layer-control output { color: #dcd3ff; }
     .layer-control input { width: 100%; accent-color: #8b70ff; }
-    .layer-visibility { margin-left: auto; padding: 3px 7px; cursor: pointer; color: #ded5ff; border: 1px solid rgba(165,142,255,.45); border-radius: 6px; background: transparent; }
+    .layer-visibility { flex: 0 0 28px; width: 28px; height: 28px; margin-left: auto; padding: 0; cursor: pointer; color: #ded5ff; border: 1px solid rgba(165,142,255,.45); border-radius: 6px; background: transparent; }
     .layer-visibility:hover { background: var(--accent-soft); }
+    .layer-visibility svg { display: block; width: 16px; height: 16px; margin: auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+    .layer-visibility.is-hidden { color: var(--muted); }
 
     @media (max-width: 1180px) {
       .app { width: calc(100% - 24px); }
@@ -300,7 +302,7 @@
       .workspace > aside:last-child .image-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
       .drawer-panel { position: static; max-height: none; }
       .drawer-panel .panel-body { overflow: visible; }
-      .layer-list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      .layer-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
       .stage-shell { padding: 10px; }
     }
     @media (max-width: 760px) {
@@ -327,7 +329,7 @@
       <div class="actions">
         <label class="template-picker">模板类型 <select id="templateSelect" aria-label="选择模板"></select></label>
         <button class="btn" id="reloadTemplate" type="button">重新加载素材</button>
-        <button class="btn primary" id="exportBtn" type="button">导出蒙版原始尺寸</button>
+        <button class="btn primary" id="exportBtn" type="button">导出图片</button>
       </div>
     </header>
 
@@ -362,7 +364,6 @@
           <div class="layer-list" id="layerList">
             <button class="layer-row active" type="button" data-layer="background">背景</button>
             <button class="layer-row" type="button" data-layer="frame">Frame</button>
-            <button class="layer-row" type="button" data-layer="mask">蒙版内容</button>
             <button class="layer-row" type="button" data-layer="cover">Cover</button>
             <button class="layer-row" type="button" data-layer="title">Title</button>
           </div>
@@ -400,7 +401,7 @@
     const ASSET_TYPES = ['frame', 'mask', 'cover', 'title'];
     const REQUIRED_TYPES = new Set(['frame', 'mask']);
     const BACKGROUND_STORAGE_KEY = 'ps-online-backgrounds-v2';
-    const LAYER_NAMES = { background: '背景', frame: 'Frame', mask: '蒙版内容', cover: 'Cover', title: 'Title' };
+    const LAYER_NAMES = { background: '背景', frame: 'Frame', cover: 'Cover', title: 'Title' };
 
     const state = {
       templateId: '01',
@@ -428,7 +429,6 @@
       layerAdjustments: {
         background: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
         frame: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
-        mask: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
         cover: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
         title: { hue: 0, saturation: 100, brightness: 100, blur: 0 }
       },
@@ -500,9 +500,6 @@
       if (!layer || layer === 'frame') els.frameLayer.style.filter = layerFilter('frame');
       if (!layer || layer === 'cover') els.coverLayer.style.filter = layerFilter('cover');
       if (!layer || layer === 'title') els.titleLayer.style.filter = layerFilter('title');
-      if (!layer || layer === 'mask') state.slots.forEach((slot) => {
-        if (slot.imageElement) slot.imageElement.style.filter = layerFilter('mask');
-      });
     }
 
     function renderLayerWindow() {
@@ -524,7 +521,15 @@
       els.blurValue.textContent = `${adjustment.blur}px`;
       const canToggle = layer === 'cover' || layer === 'title';
       els.layerVisibility.hidden = !canToggle;
-      if (canToggle) els.layerVisibility.textContent = state.layerVisibility[layer] ? '隐藏' : '显示';
+      if (canToggle) {
+        const visible = state.layerVisibility[layer];
+        els.layerVisibility.classList.toggle('is-hidden', !visible);
+        els.layerVisibility.title = visible ? `隐藏 ${LAYER_NAMES[layer]}` : `显示 ${LAYER_NAMES[layer]}`;
+        els.layerVisibility.setAttribute('aria-label', els.layerVisibility.title);
+        els.layerVisibility.innerHTML = visible
+          ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>'
+          : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18M10.7 6.3A10.5 10.5 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-3 3.7M6.1 6.1C3.8 8 2.5 12 2.5 12s3.5 6 9.5 6a9.7 9.7 0 0 0 3.1-.5M9.8 9.8A3 3 0 0 0 14.2 14.2"/></svg>';
+      }
     }
 
     function selectLayer(layer) {
@@ -910,7 +915,6 @@
       slot.imageElement.style.top = `${slot.imageY / slot.h * 100}%`;
       slot.imageElement.style.width = `${image.naturalWidth * slot.scale / slot.w * 100}%`;
       slot.imageElement.style.height = `${image.naturalHeight * slot.scale / slot.h * 100}%`;
-      slot.imageElement.style.filter = layerFilter('mask');
       placeholder.hidden = true;
     }
 
@@ -1180,9 +1184,7 @@
         itemContext.imageSmoothingEnabled = true;
         itemContext.imageSmoothingQuality = 'high';
         const image = slot.record.image;
-        itemContext.filter = layerFilter('mask');
         itemContext.drawImage(image, slot.imageX, slot.imageY, (image.naturalWidth || image.width) * slot.scale, (image.naturalHeight || image.height) * slot.scale);
-        itemContext.filter = 'none';
         itemContext.globalCompositeOperation = 'destination-in';
         itemContext.drawImage(slot.maskCanvas, 0, 0, slot.w, slot.h);
         context.drawImage(item, slot.x, slot.y);
@@ -1226,7 +1228,13 @@
     els.galleryUpload.addEventListener('drop', async (event) => { state.gallery.push(...await readRecords(event.dataTransfer.files, 'gallery')); renderGallery(); });
     els.slotInput.addEventListener('change', async (event) => {
       const [record] = await readRecords(event.target.files, 'gallery');
-      if (record) { state.gallery.push(record); setSlotImage(state.pendingSlot, record); }
+      if (record) {
+        state.gallery.push(record);
+        setSlotImage(state.pendingSlot, record);
+        // 直插本地图片不等同于选中图库项，下一格应继续打开文件选择器。
+        state.selectedGalleryId = null;
+        renderGallery();
+      }
       state.pendingSlot = null; renderGallery(); event.target.value = '';
     });
 
