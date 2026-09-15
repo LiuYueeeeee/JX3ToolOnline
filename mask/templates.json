@@ -1,0 +1,9 @@
+{
+  "templates": [
+    {
+      "id": "01",
+      "name": "武器展示",
+      "source": "mask/mask01_念七安.png"
+    }
+  ]
+}
