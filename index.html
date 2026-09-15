@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>小叽最最最最努力了</title>
+  <title>小叽最最最最最努力了</title>
   <style>
     :root {
       --page: #090b10;
@@ -191,6 +191,7 @@
     #slotLayer { z-index: 3; }
     #coverLayer { z-index: 4; }
     #titleLayer { z-index: 5; }
+    #watermaskLayer { z-index: 6; }
     .stage-message {
       z-index: 10;
       display: grid;
@@ -285,6 +286,11 @@
     .layer-row { display: flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 7px; cursor: pointer; color: var(--muted); border: 1px solid var(--line); border-radius: 8px; background: #202636; }
     .layer-row.active { color: #f2edff; border-color: #a58eff; background: var(--accent-soft); }
     .layer-row.is-hidden { opacity: .5; text-decoration: line-through; }
+    .watermask-selector { display: grid; grid-template-columns: 26px minmax(0, 1fr) 26px; gap: 4px; }
+    .watermask-selector .layer-row { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .watermask-arrow { padding: 0; cursor: pointer; color: #ded5ff; border: 1px solid var(--line); border-radius: 8px; background: #202636; }
+    .watermask-arrow:hover:not(:disabled) { border-color: #a58eff; background: var(--accent-soft); }
+    .watermask-arrow:disabled { cursor: not-allowed; opacity: .35; }
     .layer-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
     .layer-control { min-width: 0; color: var(--muted); font-size: 11px; }
     .layer-control label { display: flex; justify-content: space-between; gap: 5px; }
@@ -355,6 +361,7 @@
             <div class="slot-layer" id="slotLayer"></div>
             <img class="overlay-layer" id="coverLayer" alt="" hidden>
             <img class="overlay-layer" id="titleLayer" alt="" hidden>
+            <img class="overlay-layer" id="watermaskLayer" alt="" hidden>
             <div class="stage-message" id="stageMessage">正在读取模板…</div>
           </div>
         </div>
@@ -366,12 +373,14 @@
             <button class="layer-row" type="button" data-layer="frame">Frame</button>
             <button class="layer-row" type="button" data-layer="cover">Cover</button>
             <button class="layer-row" type="button" data-layer="title">Title</button>
+            <div class="watermask-selector"><button class="watermask-arrow" id="watermaskPrev" type="button" aria-label="上一个水印">‹</button><button class="layer-row" id="watermaskSelect" type="button" data-layer="watermask">Watermask</button><button class="watermask-arrow" id="watermaskNext" type="button" aria-label="下一个水印">›</button></div>
           </div>
           <div class="layer-controls" id="layerControls">
             <div class="layer-control"><label>色相 <output id="hueValue">0°</output></label><input id="hueControl" type="range" min="-180" max="180" value="0"></div>
             <div class="layer-control"><label>饱和度 <output id="saturationValue">100%</output></label><input id="saturationControl" type="range" min="0" max="200" value="100"></div>
             <div class="layer-control"><label>亮度 <output id="brightnessValue">100%</output></label><input id="brightnessControl" type="range" min="0" max="200" value="100"></div>
             <div class="layer-control"><label>模糊度 <output id="blurValue">0px</output></label><input id="blurControl" type="range" min="0" max="20" step="0.5" value="0"></div>
+            <div class="layer-control" id="opacityControlWrap" hidden><label>透明度 <output id="opacityValue">100%</output></label><input id="opacityControl" type="range" min="0" max="100" value="100"></div>
           </div>
         </section>
       </section>
@@ -398,10 +407,10 @@
   <script>
     // 本地 HTML 无法直接枚举目录；按 mask01、mask02…命名规则探测真实存在的蒙版文件。
     const MASK_TEMPLATE_IDS = Array.from({ length: 32 }, (_, index) => String(index + 1).padStart(2, '0'));
-    const ASSET_TYPES = ['frame', 'mask', 'cover', 'title'];
+    const ASSET_TYPES = ['frame', 'mask', 'cover', 'title', 'watermask'];
     const REQUIRED_TYPES = new Set(['frame', 'mask']);
     const BACKGROUND_STORAGE_KEY = 'ps-online-backgrounds-v2';
-    const LAYER_NAMES = { background: '背景', frame: 'Frame', cover: 'Cover', title: 'Title' };
+    const LAYER_NAMES = { background: '背景', frame: 'Frame', cover: 'Cover', title: 'Title', watermask: 'Watermask' };
 
     const state = {
       templateId: '01',
@@ -413,7 +422,9 @@
       templateNames: new Map(),
       optionalLayersLoading: false,
       maskParseError: null,
-      assets: { frame: null, mask: null, cover: null, title: null },
+      assets: { frame: null, mask: null, cover: null, title: null, watermask: null },
+      watermasks: [],
+      watermaskIndex: 0,
       maskWidth: 0,
       maskHeight: 0,
       slots: [],
@@ -425,12 +436,13 @@
       moving: null,
       justMoved: false,
       activeLayer: 'background',
-      layerVisibility: { cover: true, title: true },
+      layerVisibility: { cover: true, title: true, watermask: false },
       layerAdjustments: {
         background: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
         frame: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
         cover: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
-        title: { hue: 0, saturation: 100, brightness: 100, blur: 0 }
+        title: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
+        watermask: { hue: 0, saturation: 100, brightness: 100, blur: 0, opacity: 100 }
       },
       id: 1
     };
@@ -446,6 +458,7 @@
       frameLayer: document.getElementById('frameLayer'),
       coverLayer: document.getElementById('coverLayer'),
       titleLayer: document.getElementById('titleLayer'),
+      watermaskLayer: document.getElementById('watermaskLayer'),
       slotLayer: document.getElementById('slotLayer'),
       stageMessage: document.getElementById('stageMessage'),
       maskSummary: document.getElementById('maskSummary'),
@@ -463,10 +476,16 @@
       saturationControl: document.getElementById('saturationControl'),
       brightnessControl: document.getElementById('brightnessControl'),
       blurControl: document.getElementById('blurControl'),
+      opacityControl: document.getElementById('opacityControl'),
+      opacityControlWrap: document.getElementById('opacityControlWrap'),
+      watermaskSelect: document.getElementById('watermaskSelect'),
+      watermaskPrev: document.getElementById('watermaskPrev'),
+      watermaskNext: document.getElementById('watermaskNext'),
       hueValue: document.getElementById('hueValue'),
       saturationValue: document.getElementById('saturationValue'),
       brightnessValue: document.getElementById('brightnessValue'),
-      blurValue: document.getElementById('blurValue')
+      blurValue: document.getElementById('blurValue'),
+      opacityValue: document.getElementById('opacityValue')
     };
 
     function assetCandidates(type, id) {
@@ -500,6 +519,10 @@
       if (!layer || layer === 'frame') els.frameLayer.style.filter = layerFilter('frame');
       if (!layer || layer === 'cover') els.coverLayer.style.filter = layerFilter('cover');
       if (!layer || layer === 'title') els.titleLayer.style.filter = layerFilter('title');
+      if (!layer || layer === 'watermask') {
+        els.watermaskLayer.style.filter = layerFilter('watermask');
+        els.watermaskLayer.style.opacity = String(state.layerAdjustments.watermask.opacity / 100);
+      }
     }
 
     function renderLayerWindow() {
@@ -515,11 +538,17 @@
       els.saturationControl.value = adjustment.saturation;
       els.brightnessControl.value = adjustment.brightness;
       els.blurControl.value = adjustment.blur;
+      els.opacityControl.value = adjustment.opacity ?? 100;
       els.hueValue.textContent = `${adjustment.hue}°`;
       els.saturationValue.textContent = `${adjustment.saturation}%`;
       els.brightnessValue.textContent = `${adjustment.brightness}%`;
       els.blurValue.textContent = `${adjustment.blur}px`;
-      const canToggle = layer === 'cover' || layer === 'title';
+      els.opacityValue.textContent = `${adjustment.opacity ?? 100}%`;
+      els.opacityControlWrap.hidden = layer !== 'watermask';
+      els.watermaskSelect.textContent = state.watermasks[state.watermaskIndex]?.name || 'Watermask';
+      els.watermaskPrev.disabled = state.watermasks.length < 2;
+      els.watermaskNext.disabled = state.watermasks.length < 2;
+      const canToggle = layer === 'cover' || layer === 'title' || layer === 'watermask';
       els.layerVisibility.hidden = !canToggle;
       if (canToggle) {
         const visible = state.layerVisibility[layer];
@@ -545,7 +574,7 @@
 
     function toggleActiveLayerVisibility() {
       const layer = state.activeLayer;
-      if (layer !== 'cover' && layer !== 'title') return;
+      if (layer !== 'cover' && layer !== 'title' && layer !== 'watermask') return;
       state.layerVisibility[layer] = !state.layerVisibility[layer];
       applyLayerVisibility(layer);
       renderLayerWindow();
@@ -611,6 +640,56 @@
       return null;
     }
 
+    async function fetchWatermaskManifest() {
+      if (location.protocol === 'file:') return null;
+      for (const manifestPath of ['api/watermasks', 'watermask/watermasks.json']) {
+        try {
+          const response = await fetch(manifestPath, { cache: 'no-store' });
+          if (!response.ok) continue;
+          const payload = await response.json();
+          if (!Array.isArray(payload.watermasks)) continue;
+          return payload.watermasks
+            .filter((item) => typeof item?.source === 'string')
+            .map((item) => ({ name: String(item.name || item.source.split('/').pop().replace(/\.[^.]+$/, '')), source: item.source }));
+        } catch {
+          // Try the next compatible source.
+        }
+      }
+      return null;
+    }
+
+    function setWatermask(index) {
+      if (!state.watermasks.length) {
+        state.watermaskIndex = 0;
+        state.assets.watermask = null;
+        setLayer(els.watermaskLayer, null, 'watermask');
+        renderLayerWindow();
+        renderAssetStatus();
+        return;
+      }
+      state.watermaskIndex = (index + state.watermasks.length) % state.watermasks.length;
+      state.assets.watermask = state.watermasks[state.watermaskIndex].asset;
+      setLayer(els.watermaskLayer, state.assets.watermask, 'watermask');
+      applyLayerEffects('watermask');
+      renderLayerWindow();
+      renderAssetStatus();
+    }
+
+    function cycleWatermask(direction) {
+      setWatermask(state.watermaskIndex + direction);
+    }
+
+    async function loadWatermasks() {
+      const manifest = await fetchWatermaskManifest();
+      const candidates = manifest === null ? [{ name: 'watermask01', source: null }] : manifest;
+      const loaded = await Promise.all(candidates.map(async (item) => ({
+        ...item,
+        asset: await probeAsset(item.source ? [item.source] : assetCandidates('watermask', '01'))
+      })));
+      state.watermasks = loaded.filter((item) => item.asset);
+      setWatermask(0);
+    }
+
     async function refreshTemplateCatalog(preferredId = state.templateId) {
       const version = ++state.catalogVersion;
       ++state.loadVersion; // 取消正在进行的模板资源加载。
@@ -644,7 +723,7 @@
       els.reloadTemplate.disabled = false;
 
       if (!state.templateIds.length) {
-        state.assets = { frame: null, mask: null, cover: null, title: null };
+        state.assets = { frame: null, mask: null, cover: null, title: null, watermask: state.assets.watermask };
         state.maskWidth = 0;
         state.maskHeight = 0;
         state.slots = [];
@@ -664,7 +743,7 @@
     }
 
     function applyLayerVisibility(layer) {
-      const element = layer === 'cover' ? els.coverLayer : els.titleLayer;
+      const element = layer === 'cover' ? els.coverLayer : (layer === 'title' ? els.titleLayer : els.watermaskLayer);
       if (!element) return;
       element.hidden = !state.assets[layer] || !state.layerVisibility[layer];
     }
@@ -677,7 +756,7 @@
       }
       element.src = asset.source;
       if (layer) element.style.filter = layerFilter(layer);
-      if (layer === 'cover' || layer === 'title') applyLayerVisibility(layer);
+      if (layer === 'cover' || layer === 'title' || layer === 'watermask') applyLayerVisibility(layer);
       else element.hidden = false;
     }
 
@@ -699,7 +778,7 @@
       if (version !== state.loadVersion || id !== state.requestedTemplateId) return;
 
       state.templateId = id;
-      state.assets = { frame: null, mask: null, cover: null, title: null, ...Object.fromEntries(entries) };
+      state.assets = { frame: null, mask: null, cover: null, title: null, watermask: state.assets.watermask, ...Object.fromEntries(entries) };
       state.optionalLayersLoading = true;
       setLayer(els.frameLayer, state.assets.frame, 'frame');
       setLayer(els.coverLayer, state.assets.cover, 'cover');
@@ -739,7 +818,7 @@
 
     function renderAssetStatus(text) {
       if (text) { els.assetStatus.textContent = text; return; }
-      const names = { frame: 'Frame', mask: 'Mask', cover: 'Cover', title: 'Title' };
+      const names = { frame: 'Frame', mask: 'Mask', cover: 'Cover', title: 'Title', watermask: 'Watermask' };
       els.assetStatus.innerHTML = ASSET_TYPES.map((type) => {
         const present = Boolean(state.assets[type]);
         const detail = present ? '已加载' : (REQUIRED_TYPES.has(type) ? '未找到（必需）' : (state.optionalLayersLoading ? '加载中（可选）' : '未找到（可选）'));
@@ -1151,6 +1230,7 @@
       if (!asset) return;
       context.save();
       context.filter = layerFilter(layer);
+      if (layer === 'watermask') context.globalAlpha = state.layerAdjustments.watermask.opacity / 100;
       context.drawImage(asset.image, 0, 0, width, height);
       context.restore();
     }
@@ -1191,6 +1271,7 @@
       });
       if (state.layerVisibility.cover) drawLayer(context, state.assets.cover, width, height, 'cover');
       if (state.layerVisibility.title) drawLayer(context, state.assets.title, width, height, 'title');
+      if (state.layerVisibility.watermask) drawLayer(context, state.assets.watermask, width, height, 'watermask');
       canvas.toBlob((blob) => {
         if (!blob) return;
         const url = URL.createObjectURL(blob);
@@ -1243,7 +1324,9 @@
       if (button) selectLayer(button.dataset.layer);
     });
     els.layerVisibility.addEventListener('click', toggleActiveLayerVisibility);
-    [['hue', els.hueControl], ['saturation', els.saturationControl], ['brightness', els.brightnessControl], ['blur', els.blurControl]].forEach(([key, control]) => {
+    els.watermaskPrev.addEventListener('click', () => cycleWatermask(-1));
+    els.watermaskNext.addEventListener('click', () => cycleWatermask(1));
+    [['hue', els.hueControl], ['saturation', els.saturationControl], ['brightness', els.brightnessControl], ['blur', els.blurControl], ['opacity', els.opacityControl]].forEach(([key, control]) => {
       control.addEventListener('input', () => updateActiveLayerAdjustment(key, control.value));
     });
 
@@ -1252,6 +1335,7 @@
     renderLayerWindow();
     applyLayerEffects();
     restoreBackgrounds();
+    loadWatermasks();
     refreshTemplateCatalog('01');
   </script>
 </body>
