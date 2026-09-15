@@ -165,7 +165,7 @@
       align-items: center;
       min-height: 360px;
       padding: 14px;
-      overflow: auto;
+      overflow: hidden;
       border: 1px solid rgba(255,255,255,.08);
       border-radius: 13px;
       background-color: #0b0e14;
@@ -265,11 +265,42 @@
     .asset-guide p { margin: 4px 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
     code { color: #c8baff; }
 
+    .drawer-panel { position: sticky; top: 16px; display: flex; flex-direction: column; max-height: calc(100vh - 32px); }
+    .drawer-panel .panel-body { min-height: 0; overflow-y: auto; scrollbar-color: #5f577f transparent; }
+    .drawer-panel .image-grid { padding-right: 2px; }
+    .background-card { position: relative; display: block; width: 100%; border: 0; }
+    .background-card .background-select { position: absolute; inset: 0; cursor: pointer; border: 0; background: transparent; }
+    .background-remove {
+      position: absolute; z-index: 3; top: 5px; right: 5px; width: 24px; height: 24px; padding: 0;
+      cursor: pointer; color: white; border: 1px solid rgba(255,255,255,.3); border-radius: 50%; background: rgba(11,14,20,.78);
+    }
+    .background-remove:hover { background: #c54f60; }
+    .background-card .image-name { pointer-events: none; }
+
+    .layer-window { margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(10,13,20,.55); }
+    .layer-window-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .layer-window h2 { margin: 0; font-size: 13px; }
+    .layer-window small { color: var(--muted); font-size: 11px; }
+    .layer-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+    .layer-row { display: flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 7px; cursor: pointer; color: var(--muted); border: 1px solid var(--line); border-radius: 8px; background: #202636; }
+    .layer-row.active { color: #f2edff; border-color: #a58eff; background: var(--accent-soft); }
+    .layer-row.is-hidden { opacity: .5; text-decoration: line-through; }
+    .layer-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+    .layer-control { min-width: 0; color: var(--muted); font-size: 11px; }
+    .layer-control label { display: flex; justify-content: space-between; gap: 5px; }
+    .layer-control output { color: #dcd3ff; }
+    .layer-control input { width: 100%; accent-color: #8b70ff; }
+    .layer-visibility { margin-left: auto; padding: 3px 7px; cursor: pointer; color: #ded5ff; border: 1px solid rgba(165,142,255,.45); border-radius: 6px; background: transparent; }
+    .layer-visibility:hover { background: var(--accent-soft); }
+
     @media (max-width: 1180px) {
       .app { width: calc(100% - 24px); }
       .workspace { grid-template-columns: 220px minmax(0, 1fr); gap: 12px; }
       .workspace > aside:last-child { grid-column: 1 / -1; }
       .workspace > aside:last-child .image-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+      .drawer-panel { position: static; max-height: none; }
+      .drawer-panel .panel-body { overflow: visible; }
+      .layer-list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
       .stage-shell { padding: 10px; }
     }
     @media (max-width: 760px) {
@@ -281,6 +312,8 @@
       .workspace > aside:last-child .image-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .editor-head { flex-direction: column; }
       .asset-status { max-width: none; text-align: left; }
+      .layer-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .layer-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
   </style>
 </head>
@@ -299,11 +332,11 @@
     </header>
 
     <main class="workspace">
-      <aside class="panel" aria-label="背景抽屉">
+      <aside class="panel drawer-panel" aria-label="背景抽屉">
         <div class="panel-head"><div><h2>背景抽屉</h2><small>点击缩略图替换背景</small></div></div>
         <div class="panel-body">
-          <button class="btn primary" id="backgroundUpload" type="button" style="width:100%">+ 替换背景</button>
-          <p class="note">上传的背景会保留在当前编辑会话中，可随时切换。</p>
+          <div class="upload-zone" id="backgroundUpload" role="button" tabindex="0"><div><strong>上传背景图</strong>点击此处，或直接拖入多张背景图片</div></div>
+          <p class="note">背景会保存在当前浏览器中，可随时切换或删除。</p>
           <div class="image-grid" id="backgroundList"></div>
         </div>
       </aside>
@@ -324,9 +357,25 @@
           </div>
         </div>
         <div class="editor-foot"><span><strong>图层：</strong>背景 → Frame → 蒙版内容 → Cover → Title</span><span id="maskSummary">等待蒙版</span></div>
+        <section class="layer-window" aria-label="图层显示窗口">
+          <div class="layer-window-head"><h2>图层显示窗口</h2><small id="activeLayerName">背景</small><button class="layer-visibility" id="layerVisibility" type="button" hidden></button></div>
+          <div class="layer-list" id="layerList">
+            <button class="layer-row active" type="button" data-layer="background">背景</button>
+            <button class="layer-row" type="button" data-layer="frame">Frame</button>
+            <button class="layer-row" type="button" data-layer="mask">蒙版内容</button>
+            <button class="layer-row" type="button" data-layer="cover">Cover</button>
+            <button class="layer-row" type="button" data-layer="title">Title</button>
+          </div>
+          <div class="layer-controls" id="layerControls">
+            <div class="layer-control"><label>色相 <output id="hueValue">0°</output></label><input id="hueControl" type="range" min="-180" max="180" value="0"></div>
+            <div class="layer-control"><label>饱和度 <output id="saturationValue">100%</output></label><input id="saturationControl" type="range" min="0" max="200" value="100"></div>
+            <div class="layer-control"><label>亮度 <output id="brightnessValue">100%</output></label><input id="brightnessControl" type="range" min="0" max="200" value="100"></div>
+            <div class="layer-control"><label>模糊度 <output id="blurValue">0px</output></label><input id="blurControl" type="range" min="0" max="20" step="0.5" value="0"></div>
+          </div>
+        </section>
       </section>
 
-      <aside class="panel" aria-label="图库">
+      <aside class="panel drawer-panel" aria-label="图库">
         <div class="panel-head"><div><h2>图库</h2><small>拖动缩略图到蒙版即可添加或替换</small></div></div>
         <div class="panel-body">
           <div class="upload-zone" id="galleryUpload" role="button" tabindex="0"><div><strong>上传图片到图库</strong>点击此处，或直接拖入多张图片</div></div>
@@ -350,6 +399,8 @@
     const MASK_TEMPLATE_IDS = Array.from({ length: 32 }, (_, index) => String(index + 1).padStart(2, '0'));
     const ASSET_TYPES = ['frame', 'mask', 'cover', 'title'];
     const REQUIRED_TYPES = new Set(['frame', 'mask']);
+    const BACKGROUND_STORAGE_KEY = 'ps-online-backgrounds-v2';
+    const LAYER_NAMES = { background: '背景', frame: 'Frame', mask: '蒙版内容', cover: 'Cover', title: 'Title' };
 
     const state = {
       templateId: '01',
@@ -372,6 +423,15 @@
       pendingSlot: null,
       moving: null,
       justMoved: false,
+      activeLayer: 'background',
+      layerVisibility: { cover: true, title: true },
+      layerAdjustments: {
+        background: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
+        frame: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
+        mask: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
+        cover: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
+        title: { hue: 0, saturation: 100, brightness: 100, blur: 0 }
+      },
       id: 1
     };
 
@@ -395,7 +455,18 @@
       galleryUpload: document.getElementById('galleryUpload'),
       galleryInput: document.getElementById('galleryInput'),
       galleryList: document.getElementById('galleryList'),
-      slotInput: document.getElementById('slotInput')
+      slotInput: document.getElementById('slotInput'),
+      layerList: document.getElementById('layerList'),
+      activeLayerName: document.getElementById('activeLayerName'),
+      layerVisibility: document.getElementById('layerVisibility'),
+      hueControl: document.getElementById('hueControl'),
+      saturationControl: document.getElementById('saturationControl'),
+      brightnessControl: document.getElementById('brightnessControl'),
+      blurControl: document.getElementById('blurControl'),
+      hueValue: document.getElementById('hueValue'),
+      saturationValue: document.getElementById('saturationValue'),
+      brightnessValue: document.getElementById('brightnessValue'),
+      blurValue: document.getElementById('blurValue')
     };
 
     function assetCandidates(type, id) {
@@ -417,6 +488,62 @@
 
     function templateDisplayName(id) {
       return state.templateNames.get(id) || `模版${id}`;
+    }
+
+    function layerFilter(layer) {
+      const adjustment = state.layerAdjustments[layer];
+      return `hue-rotate(${adjustment.hue}deg) saturate(${adjustment.saturation}%) brightness(${adjustment.brightness}%) blur(${adjustment.blur}px)`;
+    }
+
+    function applyLayerEffects(layer) {
+      if (!layer || layer === 'background') els.backgroundLayer.style.filter = layerFilter('background');
+      if (!layer || layer === 'frame') els.frameLayer.style.filter = layerFilter('frame');
+      if (!layer || layer === 'cover') els.coverLayer.style.filter = layerFilter('cover');
+      if (!layer || layer === 'title') els.titleLayer.style.filter = layerFilter('title');
+      if (!layer || layer === 'mask') state.slots.forEach((slot) => {
+        if (slot.imageElement) slot.imageElement.style.filter = layerFilter('mask');
+      });
+    }
+
+    function renderLayerWindow() {
+      const layer = state.activeLayer;
+      const adjustment = state.layerAdjustments[layer];
+      els.activeLayerName.textContent = LAYER_NAMES[layer];
+      els.layerList.querySelectorAll('[data-layer]').forEach((button) => {
+        const name = button.dataset.layer;
+        button.classList.toggle('active', name === layer);
+        button.classList.toggle('is-hidden', (name === 'cover' || name === 'title') && !state.layerVisibility[name]);
+      });
+      els.hueControl.value = adjustment.hue;
+      els.saturationControl.value = adjustment.saturation;
+      els.brightnessControl.value = adjustment.brightness;
+      els.blurControl.value = adjustment.blur;
+      els.hueValue.textContent = `${adjustment.hue}°`;
+      els.saturationValue.textContent = `${adjustment.saturation}%`;
+      els.brightnessValue.textContent = `${adjustment.brightness}%`;
+      els.blurValue.textContent = `${adjustment.blur}px`;
+      const canToggle = layer === 'cover' || layer === 'title';
+      els.layerVisibility.hidden = !canToggle;
+      if (canToggle) els.layerVisibility.textContent = state.layerVisibility[layer] ? '隐藏' : '显示';
+    }
+
+    function selectLayer(layer) {
+      state.activeLayer = layer;
+      renderLayerWindow();
+    }
+
+    function updateActiveLayerAdjustment(key, value) {
+      state.layerAdjustments[state.activeLayer][key] = Number(value);
+      applyLayerEffects(state.activeLayer);
+      renderLayerWindow();
+    }
+
+    function toggleActiveLayerVisibility() {
+      const layer = state.activeLayer;
+      if (layer !== 'cover' && layer !== 'title') return;
+      state.layerVisibility[layer] = !state.layerVisibility[layer];
+      applyLayerVisibility(layer);
+      renderLayerWindow();
     }
 
     // 用并行探测快速发现 frame01 ~ frame09；只把实际存在的 Frame 作为模板选项。
@@ -531,14 +658,22 @@
       switchTemplate(nextId);
     }
 
-    function setLayer(element, asset) {
+    function applyLayerVisibility(layer) {
+      const element = layer === 'cover' ? els.coverLayer : els.titleLayer;
+      if (!element) return;
+      element.hidden = !state.assets[layer] || !state.layerVisibility[layer];
+    }
+
+    function setLayer(element, asset, layer) {
       if (!asset) {
         element.hidden = true;
         element.removeAttribute('src');
         return;
       }
       element.src = asset.source;
-      element.hidden = false;
+      if (layer) element.style.filter = layerFilter(layer);
+      if (layer === 'cover' || layer === 'title') applyLayerVisibility(layer);
+      else element.hidden = false;
     }
 
     async function switchTemplate(requestedId) {
@@ -561,9 +696,9 @@
       state.templateId = id;
       state.assets = { frame: null, mask: null, cover: null, title: null, ...Object.fromEntries(entries) };
       state.optionalLayersLoading = true;
-      setLayer(els.frameLayer, state.assets.frame);
-      setLayer(els.coverLayer, state.assets.cover);
-      setLayer(els.titleLayer, state.assets.title);
+      setLayer(els.frameLayer, state.assets.frame, 'frame');
+      setLayer(els.coverLayer, state.assets.cover, 'cover');
+      setLayer(els.titleLayer, state.assets.title, 'title');
       try {
         if (state.assets.mask) parseMask(state.assets.mask.image);
         else {
@@ -592,8 +727,8 @@
       if (version !== state.loadVersion || id !== state.requestedTemplateId) return;
       Object.assign(state.assets, Object.fromEntries(entries));
       state.optionalLayersLoading = false;
-      setLayer(els.coverLayer, state.assets.cover);
-      setLayer(els.titleLayer, state.assets.title);
+      setLayer(els.coverLayer, state.assets.cover, 'cover');
+      setLayer(els.titleLayer, state.assets.title, 'title');
       renderAssetStatus();
     }
 
@@ -775,6 +910,7 @@
       slot.imageElement.style.top = `${slot.imageY / slot.h * 100}%`;
       slot.imageElement.style.width = `${image.naturalWidth * slot.scale / slot.w * 100}%`;
       slot.imageElement.style.height = `${image.naturalHeight * slot.scale / slot.h * 100}%`;
+      slot.imageElement.style.filter = layerFilter('mask');
       placeholder.hidden = true;
     }
 
@@ -870,6 +1006,58 @@
       return result;
     }
 
+    function persistBackgrounds() {
+      try {
+        localStorage.setItem(BACKGROUND_STORAGE_KEY, JSON.stringify({
+          selectedId: state.currentBackgroundId,
+          backgrounds: state.backgrounds.map(({ id, name, url }) => ({ id, name, url }))
+        }));
+      } catch (error) {
+        console.warn('Unable to persist backgrounds', error);
+      }
+    }
+
+    function restoreBackgroundRecord(record) {
+      return new Promise((resolve) => {
+        if (!record?.id || !record?.url) return resolve(null);
+        const image = new Image();
+        image.onload = () => resolve({ id: record.id, name: record.name || 'background', url: record.url, image });
+        image.onerror = () => resolve(null);
+        image.src = record.url;
+      });
+    }
+
+    async function restoreBackgrounds() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(BACKGROUND_STORAGE_KEY) || 'null');
+        if (!Array.isArray(saved?.backgrounds)) return;
+        const records = (await Promise.all(saved.backgrounds.map(restoreBackgroundRecord))).filter(Boolean);
+        state.backgrounds = records;
+        records.forEach((record) => {
+          const suffix = Number(String(record.id).split('-').at(-1));
+          if (Number.isFinite(suffix)) state.id = Math.max(state.id, suffix + 1);
+        });
+        const selected = records.find((record) => record.id === saved.selectedId) || records[0];
+        if (selected) setBackground(selected, false);
+        else renderBackgrounds();
+      } catch (error) {
+        console.warn('Unable to restore backgrounds', error);
+      }
+    }
+
+    function deleteBackground(id) {
+      const deletingCurrent = state.currentBackgroundId === id;
+      state.backgrounds = state.backgrounds.filter((record) => record.id !== id);
+      if (deletingCurrent) {
+        const next = state.backgrounds[0] || null;
+        state.currentBackgroundId = null;
+        if (next) setBackground(next, false);
+        else els.backgroundLayer.style.backgroundImage = '';
+      }
+      renderBackgrounds();
+      persistBackgrounds();
+    }
+
     function renderBackgrounds() {
       els.backgroundList.innerHTML = '';
       if (!state.backgrounds.length) {
@@ -877,20 +1065,24 @@
         return;
       }
       state.backgrounds.forEach((record) => {
-        const card = document.createElement('button');
-        card.type = 'button';
+        const card = document.createElement('div');
         card.className = `image-card background-card${record.id === state.currentBackgroundId ? ' active' : ''}`;
         const image = document.createElement('img'); image.src = record.url; image.alt = record.name; image.draggable = false;
         const name = document.createElement('span'); name.className = 'image-name'; name.textContent = record.name;
-        card.append(image, name);
-        card.addEventListener('click', () => setBackground(record));
+        const select = document.createElement('button'); select.type = 'button'; select.className = 'background-select'; select.setAttribute('aria-label', `使用背景 ${record.name}`);
+        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'background-remove'; remove.textContent = '×'; remove.setAttribute('aria-label', `删除背景 ${record.name}`);
+        card.append(image, name, select, remove);
+        select.addEventListener('click', () => setBackground(record));
+        remove.addEventListener('click', () => deleteBackground(record.id));
         els.backgroundList.appendChild(card);
       });
     }
-    function setBackground(record) {
+    function setBackground(record, shouldPersist = true) {
       state.currentBackgroundId = record.id;
       els.backgroundLayer.style.backgroundImage = `url("${record.url}")`;
+      applyLayerEffects('background');
       renderBackgrounds();
+      if (shouldPersist) persistBackgrounds();
     }
 
     function renderGallery() {
@@ -951,7 +1143,13 @@
       const drawHeight = ratio > target ? height : width / ratio;
       context.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
     }
-    function drawLayer(context, asset, width, height) { if (asset) context.drawImage(asset.image, 0, 0, width, height); }
+    function drawLayer(context, asset, width, height, layer) {
+      if (!asset) return;
+      context.save();
+      context.filter = layerFilter(layer);
+      context.drawImage(asset.image, 0, 0, width, height);
+      context.restore();
+    }
 
     function exportImage() {
       if (!state.assets.frame || !state.assets.mask || !state.slots.length) return;
@@ -964,13 +1162,16 @@
       context.imageSmoothingEnabled = true;
       context.imageSmoothingQuality = 'high';
       const background = state.backgrounds.find((record) => record.id === state.currentBackgroundId);
+      context.save();
+      context.filter = layerFilter('background');
       if (background) drawCover(context, background.image, width, height);
       else {
         const gradient = context.createLinearGradient(0, 0, width, height);
         gradient.addColorStop(0, '#394153'); gradient.addColorStop(1, '#171b25');
         context.fillStyle = gradient; context.fillRect(0, 0, width, height);
       }
-      drawLayer(context, state.assets.frame, width, height);
+      context.restore();
+      drawLayer(context, state.assets.frame, width, height, 'frame');
       state.slots.forEach((slot) => {
         if (!slot.record) return;
         const item = document.createElement('canvas');
@@ -979,13 +1180,15 @@
         itemContext.imageSmoothingEnabled = true;
         itemContext.imageSmoothingQuality = 'high';
         const image = slot.record.image;
+        itemContext.filter = layerFilter('mask');
         itemContext.drawImage(image, slot.imageX, slot.imageY, (image.naturalWidth || image.width) * slot.scale, (image.naturalHeight || image.height) * slot.scale);
+        itemContext.filter = 'none';
         itemContext.globalCompositeOperation = 'destination-in';
         itemContext.drawImage(slot.maskCanvas, 0, 0, slot.w, slot.h);
         context.drawImage(item, slot.x, slot.y);
       });
-      drawLayer(context, state.assets.cover, width, height);
-      drawLayer(context, state.assets.title, width, height);
+      if (state.layerVisibility.cover) drawLayer(context, state.assets.cover, width, height, 'cover');
+      if (state.layerVisibility.title) drawLayer(context, state.assets.title, width, height, 'title');
       canvas.toBlob((blob) => {
         if (!blob) return;
         const url = URL.createObjectURL(blob);
@@ -1001,11 +1204,19 @@
     els.reloadTemplate.addEventListener('click', () => refreshTemplateCatalog(els.templateSelect.value || state.templateId));
     els.exportBtn.addEventListener('click', exportImage);
     els.backgroundUpload.addEventListener('click', () => els.backgroundInput.click());
+    els.backgroundUpload.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); els.backgroundInput.click(); } });
     els.backgroundInput.addEventListener('change', async (event) => {
       const records = await readRecords(event.target.files, 'background');
       state.backgrounds.push(...records);
       if (records.length) setBackground(records.at(-1));
       event.target.value = '';
+    });
+    ['dragenter', 'dragover'].forEach((eventName) => els.backgroundUpload.addEventListener(eventName, (event) => { event.preventDefault(); els.backgroundUpload.classList.add('dragging'); }));
+    ['dragleave', 'drop'].forEach((eventName) => els.backgroundUpload.addEventListener(eventName, (event) => { event.preventDefault(); els.backgroundUpload.classList.remove('dragging'); }));
+    els.backgroundUpload.addEventListener('drop', async (event) => {
+      const records = await readRecords(event.dataTransfer.files, 'background');
+      state.backgrounds.push(...records);
+      if (records.length) setBackground(records.at(-1));
     });
     els.galleryUpload.addEventListener('click', () => els.galleryInput.click());
     els.galleryUpload.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); els.galleryInput.click(); } });
@@ -1019,8 +1230,20 @@
       state.pendingSlot = null; renderGallery(); event.target.value = '';
     });
 
+    els.layerList.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-layer]');
+      if (button) selectLayer(button.dataset.layer);
+    });
+    els.layerVisibility.addEventListener('click', toggleActiveLayerVisibility);
+    [['hue', els.hueControl], ['saturation', els.saturationControl], ['brightness', els.brightnessControl], ['blur', els.blurControl]].forEach(([key, control]) => {
+      control.addEventListener('input', () => updateActiveLayerAdjustment(key, control.value));
+    });
+
     renderBackgrounds();
     renderGallery();
+    renderLayerWindow();
+    applyLayerEffects();
+    restoreBackgrounds();
     refreshTemplateCatalog('01');
   </script>
 </body>
