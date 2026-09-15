@@ -123,6 +123,9 @@
     .image-card:hover { transform: translateY(-2px); border-color: rgba(164,142,255,.8); }
     .image-card.active { border-color: #a58eff; box-shadow: 0 0 0 2px rgba(165,142,255,.22); }
     .image-card img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    /* 让图库卡片而非内部 img 成为唯一的拖拽源，避免浏览器先进入图片原生拖拽状态。 */
+    .gallery-card img, .gallery-card .image-name { pointer-events: none; }
+    .gallery-card.dragging-source { opacity: .62; }
     .image-name {
       position: absolute;
       right: 0;
@@ -236,6 +239,8 @@
       text-shadow: 0 1px 3px rgba(0,0,0,.9);
       pointer-events: none;
     }
+    /* .slot-placeholder 使用 display:grid，需显式覆盖浏览器对 hidden 的默认规则。 */
+    .slot-placeholder[hidden] { display: none; }
     .editor-foot { display: flex; justify-content: space-between; gap: 12px; margin: 10px 2px 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
     .editor-foot strong { color: #dfe4ed; }
 
@@ -681,13 +686,25 @@
         element.addEventListener('click', () => clickSlot(slot.index));
         element.addEventListener('pointerdown', (event) => beginMove(event, slot.index));
         element.addEventListener('wheel', (event) => zoomSlot(event, slot.index), { passive: false });
-        element.addEventListener('dragenter', (event) => { event.preventDefault(); element.classList.add('drop-target'); });
-        element.addEventListener('dragover', (event) => event.preventDefault());
-        element.addEventListener('dragleave', () => element.classList.remove('drop-target'));
+        // 子元素进出时会重复触发 dragenter/dragleave；用计数器防止高亮闪烁。
+        let dragDepth = 0;
+        const markDropTarget = (event) => {
+          event.preventDefault();
+          if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+          element.classList.add('drop-target');
+        };
+        element.addEventListener('dragenter', (event) => { dragDepth += 1; markDropTarget(event); });
+        element.addEventListener('dragover', markDropTarget);
+        element.addEventListener('dragleave', () => {
+          dragDepth = Math.max(0, dragDepth - 1);
+          if (dragDepth === 0) element.classList.remove('drop-target');
+        });
         element.addEventListener('drop', (event) => {
           event.preventDefault();
+          if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+          dragDepth = 0;
           element.classList.remove('drop-target');
-          const record = findGallery(event.dataTransfer.getData('text/plain'));
+          const record = findGallery(event.dataTransfer?.getData('text/plain'));
           if (record) setSlotImage(slot.index, record);
         });
         slot.element = element;
@@ -824,7 +841,7 @@
         const card = document.createElement('button');
         card.type = 'button';
         card.className = `image-card background-card${record.id === state.currentBackgroundId ? ' active' : ''}`;
-        const image = document.createElement('img'); image.src = record.url; image.alt = record.name;
+        const image = document.createElement('img'); image.src = record.url; image.alt = record.name; image.draggable = false;
         const name = document.createElement('span'); name.className = 'image-name'; name.textContent = record.name;
         card.append(image, name);
         card.addEventListener('click', () => setBackground(record));
@@ -848,11 +865,19 @@
         card.type = 'button';
         card.draggable = true;
         card.className = `image-card gallery-card${record.id === state.selectedGalleryId ? ' active' : ''}`;
-        const image = document.createElement('img'); image.src = record.url; image.alt = record.name;
+        const image = document.createElement('img'); image.src = record.url; image.alt = record.name; image.draggable = false;
         const name = document.createElement('span'); name.className = 'image-name'; name.textContent = record.name;
         card.append(image, name);
         card.addEventListener('click', () => { state.selectedGalleryId = state.selectedGalleryId === record.id ? null : record.id; renderGallery(); });
-        card.addEventListener('dragstart', (event) => { event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData('text/plain', record.id); state.selectedGalleryId = record.id; });
+        card.addEventListener('dragstart', (event) => {
+          if (!event.dataTransfer) return;
+          event.dataTransfer.effectAllowed = 'copy';
+          event.dataTransfer.dropEffect = 'copy';
+          event.dataTransfer.setData('text/plain', record.id);
+          card.classList.add('dragging-source');
+          state.selectedGalleryId = record.id;
+        });
+        card.addEventListener('dragend', () => card.classList.remove('dragging-source'));
         els.galleryList.appendChild(card);
       });
     }
