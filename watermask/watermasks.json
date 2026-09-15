@@ -1,0 +1,8 @@
+{
+  "watermasks": [
+    {
+      "name": "watermask01",
+      "source": "watermask/watermask01.png"
+    }
+  ]
+}
