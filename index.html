@@ -481,6 +481,8 @@
     const MASK_TEMPLATE_IDS = Array.from({ length: 32 }, (_, index) => String(index + 1).padStart(2, '0'));
     const ASSET_TYPES = ['frame', 'mask', 'cover', 'title', 'watermask'];
     const REQUIRED_TYPES = new Set(['frame', 'mask']);
+    // GitHub Pages 首次加载较慢时，不要把仍在传输中的图片误判为缺失。
+    const ASSET_LOAD_TIMEOUT_MS = 10000;
     const BACKGROUND_STORAGE_KEY = 'ps-online-backgrounds-v2';
     const LAYER_NAMES = { background: '背景', frame: 'Frame', cover: 'Cover', title: 'Title', watermask: 'Watermask' };
 
@@ -512,8 +514,8 @@
       layerAdjustments: {
         background: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
         frame: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
-        cover: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
-        title: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
+        cover: { hue: 0, saturation: 100, brightness: 100, blur: 0, opacity: 100 },
+        title: { hue: 0, saturation: 100, brightness: 100, blur: 0, opacity: 100 },
         watermask: { hue: 0, saturation: 100, brightness: 100, blur: 0, opacity: 100 }
       },
       id: 1
@@ -590,8 +592,14 @@
     function applyLayerEffects(layer) {
       if (!layer || layer === 'background') els.backgroundLayer.style.filter = layerFilter('background');
       if (!layer || layer === 'frame') els.frameLayer.style.filter = layerFilter('frame');
-      if (!layer || layer === 'cover') els.coverLayer.style.filter = layerFilter('cover');
-      if (!layer || layer === 'title') els.titleLayer.style.filter = layerFilter('title');
+      if (!layer || layer === 'cover') {
+        els.coverLayer.style.filter = layerFilter('cover');
+        els.coverLayer.style.opacity = String(state.layerAdjustments.cover.opacity / 100);
+      }
+      if (!layer || layer === 'title') {
+        els.titleLayer.style.filter = layerFilter('title');
+        els.titleLayer.style.opacity = String(state.layerAdjustments.title.opacity / 100);
+      }
       if (!layer || layer === 'watermask') {
         els.watermaskLayer.style.filter = layerFilter('watermask');
         els.watermaskLayer.style.opacity = String(state.layerAdjustments.watermask.opacity / 100);
@@ -617,7 +625,7 @@
       els.brightnessValue.textContent = `${adjustment.brightness}%`;
       els.blurValue.textContent = `${adjustment.blur}px`;
       els.opacityValue.textContent = `${adjustment.opacity ?? 100}%`;
-      els.opacityControlWrap.hidden = layer !== 'watermask';
+      els.opacityControlWrap.hidden = !['cover', 'title', 'watermask'].includes(layer);
       els.watermaskSelector.classList.toggle('active', layer === 'watermask');
       els.watermaskSelect.textContent = state.watermasks[state.watermaskIndex]?.name || 'Watermask';
       els.watermaskPrev.disabled = state.watermasks.length < 2;
@@ -681,7 +689,7 @@
             if (asset) finishAll(asset);
             else if (--pending === 0) finishAll(null);
           };
-          attempt.timer = setTimeout(() => finish(null), 1200);
+          attempt.timer = setTimeout(() => finish(null), ASSET_LOAD_TIMEOUT_MS);
           image.onload = () => finish({ image, source });
           image.onerror = () => finish(null);
           image.src = encodeURI(source);
@@ -1304,7 +1312,7 @@
       if (!asset) return;
       context.save();
       context.filter = layerFilter(layer);
-      if (layer === 'watermask') context.globalAlpha = state.layerAdjustments.watermask.opacity / 100;
+      if (layer === 'cover' || layer === 'title' || layer === 'watermask') context.globalAlpha = state.layerAdjustments[layer].opacity / 100;
       context.drawImage(asset.image, 0, 0, width, height);
       context.restore();
     }
