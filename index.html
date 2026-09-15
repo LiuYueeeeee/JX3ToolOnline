@@ -483,8 +483,14 @@
     const REQUIRED_TYPES = new Set(['frame', 'mask']);
     // GitHub Pages 首次加载较慢时，不要把仍在传输中的图片误判为缺失。
     const ASSET_LOAD_TIMEOUT_MS = 10000;
+    // v2 是旧版 localStorage 键；图片数据改存 IndexedDB 以避免约 5 MB 的同步存储配额。
     const BACKGROUND_STORAGE_KEY = 'ps-online-backgrounds-v2';
+    const BACKGROUND_DATABASE_NAME = 'ps-online-backgrounds';
+    const BACKGROUND_DATABASE_STORE = 'libraries';
+    const BACKGROUND_DATABASE_RECORD = 'current';
     const LAYER_NAMES = { background: '背景', frame: 'Frame', cover: 'Cover', title: 'Title', watermask: 'Watermask' };
+
+    let backgroundSaveQueue = Promise.resolve();
 
     const state = {
       templateId: '01',
@@ -1199,15 +1205,70 @@
       return result;
     }
 
-    function persistBackgrounds() {
+    function backgroundSnapshot() {
+      return {
+        selectedId: state.currentBackgroundId,
+        backgrounds: state.backgrounds.map(({ id, name, url }) => ({ id, name, url }))
+      };
+    }
+
+    function openBackgroundDatabase() {
+      return new Promise((resolve, reject) => {
+        if (!window.indexedDB) return reject(new Error('IndexedDB is unavailable'));
+        const request = window.indexedDB.open(BACKGROUND_DATABASE_NAME, 1);
+        request.onupgradeneeded = () => {
+          const database = request.result;
+          if (!database.objectStoreNames.contains(BACKGROUND_DATABASE_STORE)) database.createObjectStore(BACKGROUND_DATABASE_STORE);
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('Unable to open background database'));
+      });
+    }
+
+    async function readSavedBackgrounds() {
+      const database = await openBackgroundDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = database.transaction(BACKGROUND_DATABASE_STORE, 'readonly');
+        const request = transaction.objectStore(BACKGROUND_DATABASE_STORE).get(BACKGROUND_DATABASE_RECORD);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error || new Error('Unable to read saved backgrounds'));
+        transaction.oncomplete = () => database.close();
+        transaction.onabort = () => { database.close(); reject(transaction.error || new Error('Background read was aborted')); };
+      });
+    }
+
+    async function saveBackgrounds(snapshot) {
+      const database = await openBackgroundDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = database.transaction(BACKGROUND_DATABASE_STORE, 'readwrite');
+        transaction.objectStore(BACKGROUND_DATABASE_STORE).put(snapshot, BACKGROUND_DATABASE_RECORD);
+        transaction.oncomplete = () => { database.close(); resolve(); };
+        transaction.onerror = () => { database.close(); reject(transaction.error || new Error('Unable to save backgrounds')); };
+        transaction.onabort = () => { database.close(); reject(transaction.error || new Error('Background save was aborted')); };
+      });
+    }
+
+    function readLegacyBackgrounds() {
       try {
-        localStorage.setItem(BACKGROUND_STORAGE_KEY, JSON.stringify({
-          selectedId: state.currentBackgroundId,
-          backgrounds: state.backgrounds.map(({ id, name, url }) => ({ id, name, url }))
-        }));
+        return JSON.parse(localStorage.getItem(BACKGROUND_STORAGE_KEY) || 'null');
       } catch (error) {
-        console.warn('Unable to persist backgrounds', error);
+        console.warn('Unable to read legacy backgrounds', error);
+        return null;
       }
+    }
+
+    function persistBackgrounds() {
+      const snapshot = backgroundSnapshot();
+      backgroundSaveQueue = backgroundSaveQueue
+        .catch(() => {})
+        .then(() => saveBackgrounds(snapshot))
+        .catch((error) => {
+          // 极少数禁用 IndexedDB 的环境仍尝试旧存储，保留基础可用性。
+          console.warn('Unable to persist backgrounds with IndexedDB', error);
+          try { localStorage.setItem(BACKGROUND_STORAGE_KEY, JSON.stringify(snapshot)); }
+          catch (fallbackError) { console.warn('Unable to persist backgrounds with localStorage', fallbackError); }
+        });
+      return backgroundSaveQueue;
     }
 
     function restoreBackgroundRecord(record) {
@@ -1222,7 +1283,11 @@
 
     async function restoreBackgrounds() {
       try {
-        const saved = JSON.parse(localStorage.getItem(BACKGROUND_STORAGE_KEY) || 'null');
+        let saved = null;
+        try { saved = await readSavedBackgrounds(); }
+        catch (error) { console.warn('Unable to read backgrounds from IndexedDB', error); }
+        const fromLegacyStorage = !saved;
+        if (!saved) saved = readLegacyBackgrounds();
         if (!Array.isArray(saved?.backgrounds)) return;
         const records = (await Promise.all(saved.backgrounds.map(restoreBackgroundRecord))).filter(Boolean);
         state.backgrounds = records;
@@ -1233,6 +1298,8 @@
         const selected = records.find((record) => record.id === saved.selectedId) || records[0];
         if (selected) setBackground(selected, false);
         else renderBackgrounds();
+        // 保留旧键作为回退副本，下一次启动将优先使用成功迁移后的 IndexedDB 数据。
+        if (fromLegacyStorage) persistBackgrounds();
       } catch (error) {
         console.warn('Unable to restore backgrounds', error);
       }
