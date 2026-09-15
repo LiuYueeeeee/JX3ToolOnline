@@ -1,9 +1,0 @@
-{
-  "templates": [
-    {
-      "id": "01",
-      "name": "武器展示",
-      "source": "mask/mask01_武器展示.png"
-    }
-  ]
-}
