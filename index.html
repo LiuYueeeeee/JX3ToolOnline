@@ -456,23 +456,27 @@
 
     async function fetchMaskManifest() {
       if (location.protocol === 'file:') return null;
-      try {
-        const response = await fetch('/api/templates', { cache: 'no-store' });
-        if (!response.ok) return null;
-        const payload = await response.json();
-        if (!Array.isArray(payload.templates)) return null;
-        const unique = new Map();
-        payload.templates.forEach((template) => {
-          const id = String(template?.id || '').padStart(2, '0');
-          if (!/^\d+$/.test(id) || typeof template?.source !== 'string') return;
-          const candidate = { id, name: String(template?.name || `模版${id}`), source: template.source };
-          const existing = unique.get(id);
-          if (!existing || (existing.name === `模版${id}` && candidate.name !== `模版${id}`)) unique.set(id, candidate);
-        });
-        return [...unique.values()];
-      } catch {
-        return null;
+      // Local preview exposes a live endpoint; GitHub Pages falls back to the committed JSON file.
+      for (const manifestPath of ['api/templates', 'mask/templates.json']) {
+        try {
+          const response = await fetch(manifestPath, { cache: 'no-store' });
+          if (!response.ok) continue;
+          const payload = await response.json();
+          if (!Array.isArray(payload.templates)) continue;
+          const unique = new Map();
+          payload.templates.forEach((template) => {
+            const id = String(template?.id || '').padStart(2, '0');
+            if (!/^\d+$/.test(id) || typeof template?.source !== 'string') return;
+            const candidate = { id, name: String(template?.name || `模版${id}`), source: template.source };
+            const existing = unique.get(id);
+            if (!existing || (existing.name === `模版${id}` && candidate.name !== `模版${id}`)) unique.set(id, candidate);
+          });
+          return [...unique.values()];
+        } catch {
+          // Try the static fallback when a local endpoint is unavailable.
+        }
       }
+      return null;
     }
 
     async function refreshTemplateCatalog(preferredId = state.templateId) {
