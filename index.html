@@ -776,6 +776,8 @@
 
     function clickSlot(index) {
       if (state.justMoved) { state.justMoved = false; return; }
+      // 已有内容的格子不响应图库选中项，避免普通点击意外替换图片。
+      if (state.slots[index]?.record) return;
       const selected = findGallery(state.selectedGalleryId);
       if (selected) return setSlotImage(index, selected);
       state.pendingSlot = index;
