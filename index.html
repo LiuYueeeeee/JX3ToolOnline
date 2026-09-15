@@ -286,8 +286,8 @@
     .layer-row { display: flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 7px; cursor: pointer; color: var(--muted); border: 1px solid var(--line); border-radius: 8px; background: #202636; }
     .layer-row.active { color: #f2edff; border-color: #a58eff; background: var(--accent-soft); }
     .layer-row.is-hidden { opacity: .5; text-decoration: line-through; }
-    .watermask-selector { display: grid; grid-template-columns: 24px minmax(0, 1fr) 24px; align-items: center; min-width: 0; min-height: 34px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: #202636; }
-    .watermask-selector.active { border-color: #a58eff; background: var(--accent-soft); }
+    .watermask-selector { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; min-width: 0; min-height: 34px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: #202636; }
+    .watermask-selector.active { grid-template-columns: 24px minmax(0, 1fr) 24px; border-color: #a58eff; background: var(--accent-soft); }
     .watermask-selector .layer-row { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-color: transparent; background: transparent; }
     .watermask-selector .layer-row.active { border-color: transparent; background: transparent; }
     .watermask-selector:not(.active) .watermask-arrow { display: none; }
