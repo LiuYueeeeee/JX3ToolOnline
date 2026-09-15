@@ -240,7 +240,7 @@
     .slot.drop-target { background: rgba(139,112,255,.24); }
     .slot.has-image { cursor: grab; }
     .slot.moving { cursor: grabbing; }
-    .slot-image { position: absolute; max-width: none; user-select: none; pointer-events: none; }
+    .slot-image { position: absolute; max-width: none; user-select: none; pointer-events: none; transform-origin: center center; }
     .slot-placeholder {
       position: absolute;
       inset: 0;
@@ -423,7 +423,7 @@
 
       <section class="panel editor" aria-label="编辑画布">
         <div class="editor-head">
-          <div><h1 id="editorTitle">模板 01</h1><p>将右侧图库图片拖到任意独立蒙版中；图片放入后可拖动位置、滚轮缩放。</p></div>
+          <div><h1 id="editorTitle">模板 01</h1><p>将右侧图库图片拖到任意独立蒙版中；图片放入后可拖动位置、滚轮缩放，按住 Alt 滚轮旋转。</p></div>
           <div class="asset-status" id="assetStatus" aria-live="polite"></div>
         </div>
         <div class="stage-shell">
@@ -1003,7 +1003,7 @@
         pixels.data[offset + 3] = Math.round(alpha * value / 255);
       }
       context.putImageData(pixels, 0, 0);
-      return { ...region, index, maskCanvas, maskUrl: maskCanvas.toDataURL('image/png'), record: null, imageX: 0, imageY: 0, scale: 1, element: null, imageElement: null };
+      return { ...region, index, maskCanvas, maskUrl: maskCanvas.toDataURL('image/png'), record: null, imageX: 0, imageY: 0, scale: 1, rotation: 0, element: null, imageElement: null };
     }
 
     function renderSlots() {
@@ -1076,6 +1076,7 @@
       slot.imageElement.style.top = `${slot.imageY / slot.h * 100}%`;
       slot.imageElement.style.width = `${image.naturalWidth * slot.scale / slot.w * 100}%`;
       slot.imageElement.style.height = `${image.naturalHeight * slot.scale / slot.h * 100}%`;
+      slot.imageElement.style.transform = `rotate(${slot.rotation}deg)`;
       placeholder.hidden = true;
     }
 
@@ -1099,6 +1100,7 @@
       slot.scale = Math.max(slot.w / width, slot.h / height);
       slot.imageX = (slot.w - width * slot.scale) / 2;
       slot.imageY = (slot.h - height * slot.scale) / 2;
+      slot.rotation = 0;
       state.selectedGalleryId = record.id;
       renderSlotImage(slot);
       renderGallery();
@@ -1139,13 +1141,39 @@
       const slot = state.slots[index];
       if (!slot?.record) return;
       event.preventDefault();
+      if (event.altKey) {
+        const direction = Math.sign(event.deltaY);
+        if (!direction) return;
+        slot.rotation = (slot.rotation - direction * 5 + 360) % 360;
+        renderSlotImage(slot);
+        return;
+      }
       const rect = slot.element.getBoundingClientRect();
       const x = (event.clientX - rect.left) / rect.width * slot.w;
       const y = (event.clientY - rect.top) / rect.height * slot.h;
       const previous = slot.scale;
-      slot.scale = Math.max(.03, Math.min(20, previous * (event.deltaY < 0 ? 1.08 : 1 / 1.08)));
-      slot.imageX = x - (x - slot.imageX) * slot.scale / previous;
-      slot.imageY = y - (y - slot.imageY) * slot.scale / previous;
+      const next = Math.max(.03, Math.min(20, previous * (event.deltaY < 0 ? 1.08 : 1 / 1.08)));
+      if (next === previous) return;
+      const image = slot.record.image;
+      const previousWidth = (image.naturalWidth || image.width) * previous;
+      const previousHeight = (image.naturalHeight || image.height) * previous;
+      const nextWidth = (image.naturalWidth || image.width) * next;
+      const nextHeight = (image.naturalHeight || image.height) * next;
+      const radians = slot.rotation * Math.PI / 180;
+      const cosine = Math.cos(radians);
+      const sine = Math.sin(radians);
+      const centerX = slot.imageX + previousWidth / 2;
+      const centerY = slot.imageY + previousHeight / 2;
+      // 将鼠标位置反旋转回原始图片坐标，保证旋转后的图片仍以鼠标所在点缩放。
+      const localX = cosine * (x - centerX) + sine * (y - centerY) + centerX;
+      const localY = -sine * (x - centerX) + cosine * (y - centerY) + centerY;
+      const ratioX = (localX - slot.imageX) / previousWidth;
+      const ratioY = (localY - slot.imageY) / previousHeight;
+      const offsetX = cosine * (ratioX - .5) * nextWidth - sine * (ratioY - .5) * nextHeight;
+      const offsetY = sine * (ratioX - .5) * nextWidth + cosine * (ratioY - .5) * nextHeight;
+      slot.scale = next;
+      slot.imageX = x - offsetX - nextWidth / 2;
+      slot.imageY = y - offsetY - nextHeight / 2;
       renderSlotImage(slot);
     }
 
@@ -1346,7 +1374,13 @@
         itemContext.imageSmoothingEnabled = true;
         itemContext.imageSmoothingQuality = 'high';
         const image = slot.record.image;
-        itemContext.drawImage(image, slot.imageX, slot.imageY, (image.naturalWidth || image.width) * slot.scale, (image.naturalHeight || image.height) * slot.scale);
+        const imageWidth = (image.naturalWidth || image.width) * slot.scale;
+        const imageHeight = (image.naturalHeight || image.height) * slot.scale;
+        itemContext.save();
+        itemContext.translate(slot.imageX + imageWidth / 2, slot.imageY + imageHeight / 2);
+        itemContext.rotate(slot.rotation * Math.PI / 180);
+        itemContext.drawImage(image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
+        itemContext.restore();
         itemContext.globalCompositeOperation = 'destination-in';
         itemContext.drawImage(slot.maskCanvas, 0, 0, slot.w, slot.h);
         context.drawImage(item, slot.x, slot.y);
