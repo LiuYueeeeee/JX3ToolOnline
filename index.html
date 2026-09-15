@@ -358,6 +358,7 @@
       catalogVersion: 0,
       templateIds: [],
       maskCatalog: new Map(),
+      templateNames: new Map(),
       optionalLayersLoading: false,
       maskParseError: null,
       assets: { frame: null, mask: null, cover: null, title: null },
@@ -414,6 +415,10 @@
       return probeAsset(candidates);
     }
 
+    function templateDisplayName(id) {
+      return state.templateNames.get(id) || `模版${id}`;
+    }
+
     // 用并行探测快速发现 frame01 ~ frame09；只把实际存在的 Frame 作为模板选项。
     function probeAsset(candidates) {
       return new Promise((resolve) => {
@@ -449,6 +454,27 @@
       });
     }
 
+    async function fetchMaskManifest() {
+      if (location.protocol === 'file:') return null;
+      try {
+        const response = await fetch('/api/templates', { cache: 'no-store' });
+        if (!response.ok) return null;
+        const payload = await response.json();
+        if (!Array.isArray(payload.templates)) return null;
+        const unique = new Map();
+        payload.templates.forEach((template) => {
+          const id = String(template?.id || '').padStart(2, '0');
+          if (!/^\d+$/.test(id) || typeof template?.source !== 'string') return;
+          const candidate = { id, name: String(template?.name || `模版${id}`), source: template.source };
+          const existing = unique.get(id);
+          if (!existing || (existing.name === `模版${id}` && candidate.name !== `模版${id}`)) unique.set(id, candidate);
+        });
+        return [...unique.values()];
+      } catch {
+        return null;
+      }
+    }
+
     async function refreshTemplateCatalog(preferredId = state.templateId) {
       const version = ++state.catalogVersion;
       ++state.loadVersion; // 取消正在进行的模板资源加载。
@@ -459,16 +485,23 @@
       els.stageMessage.hidden = false;
       renderAssetStatus('正在扫描 mask 文件夹…');
 
-      const catalogEntries = await Promise.all(MASK_TEMPLATE_IDS.map(async (id) => [id, await probeAsset(assetCandidates('mask', id))]));
+      const manifest = await fetchMaskManifest();
+      const candidates = manifest || MASK_TEMPLATE_IDS.map((id) => ({ id, name: `模版${id}`, source: null }));
+      const catalogEntries = await Promise.all(candidates.map(async (template) => ({
+        ...template,
+        asset: await probeAsset(template.source ? [template.source] : assetCandidates('mask', template.id))
+      })));
       if (version !== state.catalogVersion) return;
 
-      state.maskCatalog = new Map(catalogEntries.filter(([, asset]) => asset));
+      const availableTemplates = catalogEntries.filter((template) => template.asset);
+      state.maskCatalog = new Map(availableTemplates.map((template) => [template.id, template.asset]));
+      state.templateNames = new Map(availableTemplates.map((template) => [template.id, template.name]));
       state.templateIds = [...state.maskCatalog.keys()];
       els.templateSelect.innerHTML = '';
       state.templateIds.forEach((id) => {
         const option = document.createElement('option');
         option.value = id;
-        option.textContent = `模版${id}`;
+        option.textContent = templateDisplayName(id);
         els.templateSelect.appendChild(option);
       });
       els.templateSelect.disabled = state.templateIds.length === 0;
@@ -509,11 +542,11 @@
       const version = ++state.loadVersion;
       state.requestedTemplateId = id;
       els.templateSelect.value = id;
-      els.editorTitle.textContent = `模版${id}`;
+      els.editorTitle.textContent = templateDisplayName(id);
       els.stage.classList.add('loading');
       els.exportBtn.disabled = true;
       state.maskParseError = null;
-      els.stageMessage.textContent = `正在加载模板 ${id}…`;
+      els.stageMessage.textContent = `正在加载${templateDisplayName(id)}…`;
       els.stageMessage.hidden = false;
       renderAssetStatus('正在加载模板素材…');
 
