@@ -17,7 +17,12 @@
     },
     {
       "id": "04",
-      "name": "5个随心拍",
+      "name": "5格随心拍",
+      "source": "mask/mask04.png"
+    },
+    {
+      "id": "04",
+      "name": "6格鸡蛋",
       "source": "mask/mask04.png"
     }
   ]
