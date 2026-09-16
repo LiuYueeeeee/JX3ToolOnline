@@ -1,0 +1,19 @@
+{
+  "templates": [
+    {
+      "id": "01",
+      "name": "念七安",
+      "source": "mask/mask01.png"
+    },
+    {
+      "id": "02",
+      "name": "武器展示",
+      "source": "mask/mask02.png"
+    },
+    {
+      "id": "03",
+      "name": "大梦一场",
+      "source": "mask/mask03.png"
+    }
+  ]
+}
