@@ -537,6 +537,7 @@
       transforming: null,
       selectedSlotIndex: null,
       transformBox: null,
+      suppressSlotClick: false,
       justMoved: false,
       activeLayer: 'background',
       layerVisibility: { cover: true, title: true, watermask: false },
@@ -1115,6 +1116,10 @@
     }
 
     function clickSlot(index) {
+      if (state.suppressSlotClick) {
+        state.suppressSlotClick = false;
+        return;
+      }
       if (state.justMoved) { state.justMoved = false; return; }
       // 已有内容的格子不响应图库选中项，避免普通点击意外替换图片。
       if (state.slots[index]?.record) return;
@@ -1143,7 +1148,20 @@
 
     function beginMove(event, index) {
       const slot = state.slots[index];
-      if (!slot?.record || event.button !== 0) return;
+      if (event.button !== 0) return;
+      if (!slot?.record) {
+        if (state.selectedSlotIndex !== null) state.suppressSlotClick = true;
+        return;
+      }
+      if (state.selectedSlotIndex !== null && state.selectedSlotIndex !== index) {
+        state.suppressSlotClick = true;
+        selectSlot(null);
+        return;
+      }
+      if (state.selectedSlotIndex !== index) {
+        selectSlot(index);
+        return;
+      }
       selectSlot(index);
       state.moving = { index, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, imageX: slot.imageX, imageY: slot.imageY, rect: slot.element.getBoundingClientRect(), moved: false };
       slot.element.classList.add('moving');
@@ -1654,7 +1672,9 @@
     els.reloadTemplate.addEventListener('click', () => refreshTemplateCatalog(els.templateSelect.value || state.templateId));
     els.exportBtn.addEventListener('click', exportImage);
     els.stage.addEventListener('pointerdown', (event) => {
-      if (!event.target.closest('.slot') && !event.target.closest('.transform-box')) selectSlot(null);
+      if (event.target.closest('.transform-handle')) return;
+      const selectedSlot = state.slots[state.selectedSlotIndex];
+      if (!selectedSlot?.element?.contains(event.target)) selectSlot(null);
     });
     els.backgroundUpload.addEventListener('click', () => els.backgroundInput.click());
     els.backgroundUpload.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); els.backgroundInput.click(); } });
