@@ -200,13 +200,14 @@
     }
     /* 加载提示统一由 .stage-message 呈现，避免两个文字层叠加。 */
     .stage.loading::after { content: none; display: none; }
-    .background-layer, .overlay-layer, .slot-layer, .stage-message { position: absolute; inset: 0; }
+    .background-layer, .overlay-layer, .slot-layer, .transform-layer, .stage-message { position: absolute; inset: 0; }
     .background-layer { z-index: 1; background: #303746 center / cover no-repeat; }
     .overlay-layer { z-index: 2; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
     #slotLayer { z-index: 3; }
     #coverLayer { z-index: 4; }
     #titleLayer { z-index: 5; }
     #watermaskLayer { z-index: 6; }
+    #transformLayer { z-index: 7; pointer-events: none; }
     .stage-message {
       z-index: 10;
       display: grid;
@@ -240,7 +241,17 @@
     .slot.drop-target { background: rgba(139,112,255,.24); }
     .slot.has-image { cursor: grab; }
     .slot.moving { cursor: grabbing; }
+    .slot.selected { outline-color: rgba(178,159,255,.72); }
     .slot-image { position: absolute; max-width: none; user-select: none; pointer-events: none; transform-origin: center center; }
+    .transform-box { position: absolute; border: 1px solid #c4b6ff; box-shadow: 0 0 0 1px rgba(40,29,92,.45); pointer-events: none; transform-origin: center center; }
+    .transform-handle { position: absolute; width: 10px; height: 10px; padding: 0; border: 1px solid #5d43d7; border-radius: 1px; background: #f4f1ff; box-shadow: 0 1px 3px rgba(0,0,0,.42); pointer-events: auto; }
+    .transform-handle[data-handle="nw"] { top: -6px; left: -6px; cursor: nwse-resize; }
+    .transform-handle[data-handle="ne"] { top: -6px; right: -6px; cursor: nesw-resize; }
+    .transform-handle[data-handle="se"] { right: -6px; bottom: -6px; cursor: nwse-resize; }
+    .transform-handle[data-handle="sw"] { bottom: -6px; left: -6px; cursor: nesw-resize; }
+    .transform-handle[data-handle="rotate"] { top: -31px; left: calc(50% - 5px); border-radius: 50%; cursor: grab; }
+    .transform-handle[data-handle="rotate"]::after { position: absolute; top: 9px; left: 4px; width: 1px; height: 16px; content: ""; background: #c4b6ff; pointer-events: none; }
+    .transform-handle[data-handle="rotate"]:active { cursor: grabbing; }
     .slot-placeholder {
       position: absolute;
       inset: 0;
@@ -276,6 +287,10 @@
     }
     .upload-zone strong { display: block; margin-bottom: 2px; color: #e8e2ff; font-size: 13px; }
     .upload-zone.dragging { border-color: #c0adff; background: rgba(139,112,255,.25); }
+    .solid-background-adder { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 8px; margin-top: 10px; }
+    .solid-background-adder input[type="color"] { width: 38px; height: 36px; padding: 3px; cursor: pointer; border: 1px solid var(--line); border-radius: 9px; background: #202636; }
+    .solid-background-adder .btn { width: 100%; }
+    .background-color-swatch { display: block; width: 100%; height: 100%; }
     .asset-guide { margin-top: 15px; padding-top: 14px; border-top: 1px solid var(--line); }
     .asset-guide strong { display: block; margin-bottom: 6px; font-size: 12px; }
     .asset-guide p { margin: 4px 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
@@ -416,6 +431,7 @@
         <div class="panel-head"><div><h2>背景抽屉</h2><small>点击缩略图替换背景</small></div></div>
         <div class="panel-body">
           <div class="upload-zone" id="backgroundUpload" role="button" tabindex="0"><div><strong>上传背景图</strong>点击此处，或直接拖入多张背景图片</div></div>
+          <div class="solid-background-adder"><input id="backgroundColor" type="color" value="#303746" aria-label="选择纯色背景"><button class="btn" id="addSolidBackground" type="button">添加纯色背景</button></div>
           <p class="note">背景会保存在当前浏览器中，可随时切换或删除。</p>
           <div class="image-grid" id="backgroundList"></div>
         </div>
@@ -423,7 +439,7 @@
 
       <section class="panel editor" aria-label="编辑画布">
         <div class="editor-head">
-          <div><h1 id="editorTitle">模板 01</h1><p>将右侧图库图片拖到任意独立蒙版中；图片放入后可拖动位置、滚轮缩放，按住 Alt 滚轮旋转。</p></div>
+          <div><h1 id="editorTitle">模板 01</h1><p>将右侧图库图片拖到任意独立蒙版中；点击图片显示变换框，拖动图片移动，拖动角点缩放或上方圆点旋转。</p></div>
           <div class="asset-status" id="assetStatus" aria-live="polite"></div>
         </div>
         <div class="stage-shell">
@@ -434,6 +450,7 @@
             <img class="overlay-layer" id="coverLayer" alt="" hidden>
             <img class="overlay-layer" id="titleLayer" alt="" hidden>
             <img class="overlay-layer" id="watermaskLayer" alt="" hidden>
+            <div class="transform-layer" id="transformLayer"></div>
             <div class="stage-message" id="stageMessage">正在读取模板…</div>
           </div>
         </div>
@@ -515,6 +532,9 @@
       currentBackgroundId: null,
       pendingSlot: null,
       moving: null,
+      transforming: null,
+      selectedSlotIndex: null,
+      transformBox: null,
       justMoved: false,
       activeLayer: 'background',
       layerVisibility: { cover: true, title: true, watermask: false },
@@ -541,10 +561,13 @@
       titleLayer: document.getElementById('titleLayer'),
       watermaskLayer: document.getElementById('watermaskLayer'),
       slotLayer: document.getElementById('slotLayer'),
+      transformLayer: document.getElementById('transformLayer'),
       stageMessage: document.getElementById('stageMessage'),
       maskSummary: document.getElementById('maskSummary'),
       backgroundUpload: document.getElementById('backgroundUpload'),
       backgroundInput: document.getElementById('backgroundInput'),
+      backgroundColor: document.getElementById('backgroundColor'),
+      addSolidBackground: document.getElementById('addSolidBackground'),
       backgroundList: document.getElementById('backgroundList'),
       galleryUpload: document.getElementById('galleryUpload'),
       galleryInput: document.getElementById('galleryInput'),
@@ -1014,7 +1037,10 @@
     }
 
     function renderSlots() {
+      state.selectedSlotIndex = null;
+      state.transformBox = null;
       els.slotLayer.innerHTML = '';
+      els.transformLayer.innerHTML = '';
       state.slots.forEach((slot) => {
         const element = document.createElement('div');
         element.className = 'slot';
@@ -1030,7 +1056,6 @@
         element.appendChild(placeholder);
         element.addEventListener('click', () => clickSlot(slot.index));
         element.addEventListener('pointerdown', (event) => beginMove(event, slot.index));
-        element.addEventListener('wheel', (event) => zoomSlot(event, slot.index), { passive: false });
         // 子元素进出时会重复触发 dragenter/dragleave；用计数器防止高亮闪烁。
         let dragDepth = 0;
         const markDropTarget = (event) => {
@@ -1111,18 +1136,139 @@
       state.selectedGalleryId = record.id;
       renderSlotImage(slot);
       renderGallery();
+      selectSlot(index);
     }
 
     function beginMove(event, index) {
       const slot = state.slots[index];
       if (!slot?.record || event.button !== 0) return;
+      selectSlot(index);
       state.moving = { index, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, imageX: slot.imageX, imageY: slot.imageY, rect: slot.element.getBoundingClientRect(), moved: false };
       slot.element.classList.add('moving');
       slot.element.setPointerCapture?.(event.pointerId);
       event.preventDefault();
     }
 
+    function slotImageSize(slot) {
+      const image = slot.record.image;
+      return {
+        width: (image.naturalWidth || image.width) * slot.scale,
+        height: (image.naturalHeight || image.height) * slot.scale
+      };
+    }
+
+    function rotateVector(x, y, radians) {
+      const cosine = Math.cos(radians);
+      const sine = Math.sin(radians);
+      return { x: cosine * x - sine * y, y: sine * x + cosine * y };
+    }
+
+    function pointerToStage(event) {
+      const rect = els.stage.getBoundingClientRect();
+      return {
+        x: (event.clientX - rect.left) / rect.width * state.maskWidth,
+        y: (event.clientY - rect.top) / rect.height * state.maskHeight
+      };
+    }
+
+    function selectSlot(index) {
+      const slot = Number.isInteger(index) ? state.slots[index] : null;
+      state.selectedSlotIndex = slot?.record ? index : null;
+      state.slots.forEach((candidate, candidateIndex) => candidate.element?.classList.toggle('selected', candidateIndex === state.selectedSlotIndex));
+      renderTransformControls();
+    }
+
+    function updateTransformBox(slot = state.slots[state.selectedSlotIndex]) {
+      if (!slot?.record || !state.transformBox || !state.maskWidth || !state.maskHeight) return;
+      const { width, height } = slotImageSize(slot);
+      state.transformBox.style.left = `${(slot.x + slot.imageX) / state.maskWidth * 100}%`;
+      state.transformBox.style.top = `${(slot.y + slot.imageY) / state.maskHeight * 100}%`;
+      state.transformBox.style.width = `${width / state.maskWidth * 100}%`;
+      state.transformBox.style.height = `${height / state.maskHeight * 100}%`;
+      state.transformBox.style.transform = `rotate(${slot.rotation}deg)`;
+    }
+
+    function renderTransformControls() {
+      els.transformLayer.innerHTML = '';
+      state.transformBox = null;
+      const slot = state.slots[state.selectedSlotIndex];
+      if (!slot?.record) return;
+      const box = document.createElement('div');
+      box.className = 'transform-box';
+      box.dataset.slotIndex = String(slot.index);
+      const labels = { nw: '左上角缩放', ne: '右上角缩放', se: '右下角缩放', sw: '左下角缩放', rotate: '旋转图片' };
+      Object.keys(labels).forEach((handleType) => {
+        const handle = document.createElement('button');
+        handle.type = 'button';
+        handle.className = 'transform-handle';
+        handle.dataset.handle = handleType;
+        handle.setAttribute('aria-label', labels[handleType]);
+        handle.addEventListener('pointerdown', (event) => beginTransform(event, slot.index, handleType));
+        box.appendChild(handle);
+      });
+      els.transformLayer.appendChild(box);
+      state.transformBox = box;
+      updateTransformBox(slot);
+    }
+
+    function beginTransform(event, index, handleType) {
+      const slot = state.slots[index];
+      if (!slot?.record || event.button !== 0) return;
+      const { width, height } = slotImageSize(slot);
+      const center = { x: slot.x + slot.imageX + width / 2, y: slot.y + slot.imageY + height / 2 };
+      const transform = { index, pointerId: event.pointerId, handleType, startScale: slot.scale, startRotation: slot.rotation, width, height, center };
+      if (handleType === 'rotate') {
+        const point = pointerToStage(event);
+        transform.startPointerAngle = Math.atan2(point.y - center.y, point.x - center.x);
+      } else {
+        const signs = { nw: { x: -1, y: -1 }, ne: { x: 1, y: -1 }, se: { x: 1, y: 1 }, sw: { x: -1, y: 1 } };
+        transform.sign = signs[handleType];
+        const anchorOffset = rotateVector(-transform.sign.x * width / 2, -transform.sign.y * height / 2, slot.rotation * Math.PI / 180);
+        transform.anchor = { x: center.x + anchorOffset.x, y: center.y + anchorOffset.y };
+      }
+      state.transforming = transform;
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    function updateTransform(event) {
+      const transform = state.transforming;
+      if (!transform || transform.pointerId !== event.pointerId) return false;
+      const slot = state.slots[transform.index];
+      if (!slot?.record) return false;
+      const point = pointerToStage(event);
+      if (transform.handleType === 'rotate') {
+        const angle = Math.atan2(point.y - transform.center.y, point.x - transform.center.x);
+        let rotation = transform.startRotation + (angle - transform.startPointerAngle) * 180 / Math.PI;
+        if (event.shiftKey) rotation = Math.round(rotation / 15) * 15;
+        slot.rotation = rotation;
+      } else {
+        const radians = transform.startRotation * Math.PI / 180;
+        const delta = { x: point.x - transform.anchor.x, y: point.y - transform.anchor.y };
+        const local = rotateVector(delta.x, delta.y, -radians);
+        const widthRatio = transform.sign.x * local.x / transform.width;
+        const heightRatio = transform.sign.y * local.y / transform.height;
+        const scaleRatio = Math.max(.03 / transform.startScale, Math.min(20 / transform.startScale, Math.max(widthRatio, heightRatio)));
+        const nextScale = transform.startScale * scaleRatio;
+        const nextWidth = transform.width * scaleRatio;
+        const nextHeight = transform.height * scaleRatio;
+        const centerOffset = rotateVector(transform.sign.x * nextWidth / 2, transform.sign.y * nextHeight / 2, radians);
+        const nextCenter = { x: transform.anchor.x + centerOffset.x, y: transform.anchor.y + centerOffset.y };
+        slot.scale = nextScale;
+        slot.imageX = nextCenter.x - slot.x - nextWidth / 2;
+        slot.imageY = nextCenter.y - slot.y - nextHeight / 2;
+      }
+      renderSlotImage(slot);
+      updateTransformBox(slot);
+      return true;
+    }
+
     window.addEventListener('pointermove', (event) => {
+      if (updateTransform(event)) {
+        event.preventDefault();
+        return;
+      }
       const moving = state.moving;
       if (!moving || moving.pointerId !== event.pointerId) return;
       const slot = state.slots[moving.index];
@@ -1132,6 +1278,7 @@
       slot.imageY = moving.imageY + dy;
       moving.moved ||= Math.abs(dx) > 1 || Math.abs(dy) > 1;
       renderSlotImage(slot);
+      updateTransformBox(slot);
     });
     function endMove(event) {
       const moving = state.moving;
@@ -1144,45 +1291,13 @@
     window.addEventListener('pointerup', endMove);
     window.addEventListener('pointercancel', endMove);
 
-    function zoomSlot(event, index) {
-      const slot = state.slots[index];
-      if (!slot?.record) return;
-      event.preventDefault();
-      if (event.altKey) {
-        const direction = Math.sign(event.deltaY);
-        if (!direction) return;
-        slot.rotation = (slot.rotation - direction * 5 + 360) % 360;
-        renderSlotImage(slot);
-        return;
-      }
-      const rect = slot.element.getBoundingClientRect();
-      const x = (event.clientX - rect.left) / rect.width * slot.w;
-      const y = (event.clientY - rect.top) / rect.height * slot.h;
-      const previous = slot.scale;
-      const next = Math.max(.03, Math.min(20, previous * (event.deltaY < 0 ? 1.08 : 1 / 1.08)));
-      if (next === previous) return;
-      const image = slot.record.image;
-      const previousWidth = (image.naturalWidth || image.width) * previous;
-      const previousHeight = (image.naturalHeight || image.height) * previous;
-      const nextWidth = (image.naturalWidth || image.width) * next;
-      const nextHeight = (image.naturalHeight || image.height) * next;
-      const radians = slot.rotation * Math.PI / 180;
-      const cosine = Math.cos(radians);
-      const sine = Math.sin(radians);
-      const centerX = slot.imageX + previousWidth / 2;
-      const centerY = slot.imageY + previousHeight / 2;
-      // 将鼠标位置反旋转回原始图片坐标，保证旋转后的图片仍以鼠标所在点缩放。
-      const localX = cosine * (x - centerX) + sine * (y - centerY) + centerX;
-      const localY = -sine * (x - centerX) + cosine * (y - centerY) + centerY;
-      const ratioX = (localX - slot.imageX) / previousWidth;
-      const ratioY = (localY - slot.imageY) / previousHeight;
-      const offsetX = cosine * (ratioX - .5) * nextWidth - sine * (ratioY - .5) * nextHeight;
-      const offsetY = sine * (ratioX - .5) * nextWidth + cosine * (ratioY - .5) * nextHeight;
-      slot.scale = next;
-      slot.imageX = x - offsetX - nextWidth / 2;
-      slot.imageY = y - offsetY - nextHeight / 2;
-      renderSlotImage(slot);
+    function endTransform(event) {
+      const transform = state.transforming;
+      if (!transform || (event && transform.pointerId !== event.pointerId)) return;
+      state.transforming = null;
     }
+    window.addEventListener('pointerup', endTransform);
+    window.addEventListener('pointercancel', endTransform);
 
     function findGallery(id) { return state.gallery.find((record) => record.id === id) || null; }
     function makeRecord(file, group) {
@@ -1209,7 +1324,7 @@
     function backgroundSnapshot() {
       return {
         selectedId: state.currentBackgroundId,
-        backgrounds: state.backgrounds.map(({ id, name, url }) => ({ id, name, url }))
+        backgrounds: state.backgrounds.map(({ id, name, url, type, color }) => ({ id, name, url, type, color }))
       };
     }
 
@@ -1310,9 +1425,14 @@
 
     function restoreBackgroundRecord(record) {
       return new Promise((resolve) => {
-        if (!record?.id || !record?.url) return resolve(null);
+        if (!record?.id) return resolve(null);
+        if (record.type === 'color') {
+          const color = String(record.color || '').trim();
+          return resolve(/^#[0-9a-f]{6}$/i.test(color) ? { id: record.id, name: record.name || `纯色 ${color.toUpperCase()}`, type: 'color', color } : null);
+        }
+        if (!record.url) return resolve(null);
         const image = new Image();
-        image.onload = () => resolve({ id: record.id, name: record.name || 'background', url: record.url, image });
+        image.onload = () => resolve({ id: record.id, name: record.name || 'background', type: 'image', url: record.url, image });
         image.onerror = () => resolve(null);
         image.src = record.url;
       });
@@ -1348,8 +1468,7 @@
       if (deletingCurrent) {
         const next = state.backgrounds[0] || null;
         state.currentBackgroundId = next?.id || null;
-        els.backgroundLayer.style.backgroundImage = next ? `url("${next.url}")` : '';
-        applyLayerEffects('background');
+        applyBackgroundLayer(next);
       }
       renderBackgrounds();
       persistBackgrounds();
@@ -1357,19 +1476,24 @@
 
     function renderBackgrounds() {
       els.backgroundList.innerHTML = '';
-      if (!state.backgrounds.length) {
-        els.backgroundList.innerHTML = '<div class="empty-grid">暂无背景<br>点击“替换背景”上传</div>';
-        return;
-      }
+      if (!state.backgrounds.length) return;
       state.backgrounds.forEach((record) => {
         const card = document.createElement('div');
         card.className = `image-card background-card${record.id === state.currentBackgroundId ? ' active' : ''}`;
         card.dataset.backgroundId = record.id;
-        const image = document.createElement('img'); image.src = record.url; image.alt = record.name; image.draggable = false;
+        const preview = record.type === 'color' ? document.createElement('span') : document.createElement('img');
+        if (record.type === 'color') {
+          preview.className = 'background-color-swatch';
+          preview.style.background = record.color;
+        } else {
+          preview.src = record.url;
+          preview.alt = record.name;
+          preview.draggable = false;
+        }
         const name = document.createElement('span'); name.className = 'image-name'; name.textContent = record.name;
         const select = document.createElement('button'); select.type = 'button'; select.className = 'background-select'; select.setAttribute('aria-label', `使用背景 ${record.name}`);
         const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'background-remove'; remove.textContent = '×'; remove.setAttribute('aria-label', `删除背景 ${record.name}`);
-        card.append(image, name, select, remove);
+        card.append(preview, name, select, remove);
         select.addEventListener('click', () => setBackground(record));
         remove.addEventListener('click', () => deleteBackground(record.id));
         els.backgroundList.appendChild(card);
@@ -1383,20 +1507,29 @@
       }
       cards.forEach((card) => card.classList.toggle('active', card.dataset.backgroundId === state.currentBackgroundId));
     }
+    function applyBackgroundLayer(record) {
+      const isColor = record?.type === 'color';
+      els.backgroundLayer.style.backgroundImage = record && !isColor ? `url("${record.url}")` : '';
+      els.backgroundLayer.style.backgroundColor = isColor ? record.color : '';
+      applyLayerEffects('background');
+    }
     function setBackground(record, shouldPersist = true) {
       state.currentBackgroundId = record.id;
-      els.backgroundLayer.style.backgroundImage = `url("${record.url}")`;
-      applyLayerEffects('background');
+      applyBackgroundLayer(record);
       updateBackgroundSelection();
       if (shouldPersist) persistBackgroundSelection();
+    }
+    function addSolidBackground() {
+      const color = els.backgroundColor.value;
+      const record = { id: `background-${state.id++}`, name: `纯色 ${color.toUpperCase()}`, type: 'color', color };
+      state.backgrounds.push(record);
+      setBackground(record, false);
+      persistBackgrounds();
     }
 
     function renderGallery() {
       els.galleryList.innerHTML = '';
-      if (!state.gallery.length) {
-        els.galleryList.innerHTML = '<div class="empty-grid">图库为空<br>上传图片后拖入蒙版</div>';
-        return;
-      }
+      if (!state.gallery.length) return;
       state.gallery.forEach((record) => {
         const card = document.createElement('button');
         card.type = 'button';
@@ -1471,7 +1604,10 @@
       const background = state.backgrounds.find((record) => record.id === state.currentBackgroundId);
       context.save();
       context.filter = layerFilter('background');
-      if (background) drawCover(context, background.image, width, height);
+      if (background?.type === 'color') {
+        context.fillStyle = background.color;
+        context.fillRect(0, 0, width, height);
+      } else if (background) drawCover(context, background.image, width, height);
       else {
         const gradient = context.createLinearGradient(0, 0, width, height);
         gradient.addColorStop(0, '#394153'); gradient.addColorStop(1, '#171b25');
@@ -1515,8 +1651,12 @@
     els.templateSelect.addEventListener('change', (event) => switchTemplate(event.target.value));
     els.reloadTemplate.addEventListener('click', () => refreshTemplateCatalog(els.templateSelect.value || state.templateId));
     els.exportBtn.addEventListener('click', exportImage);
+    els.stage.addEventListener('pointerdown', (event) => {
+      if (!event.target.closest('.slot') && !event.target.closest('.transform-box')) selectSlot(null);
+    });
     els.backgroundUpload.addEventListener('click', () => els.backgroundInput.click());
     els.backgroundUpload.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); els.backgroundInput.click(); } });
+    els.addSolidBackground.addEventListener('click', addSolidBackground);
     els.backgroundInput.addEventListener('change', async (event) => {
       const records = await readRecords(event.target.files, 'background');
       state.backgrounds.push(...records);
