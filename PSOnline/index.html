@@ -166,7 +166,7 @@
       border-radius: 10px;
     }
 
-    .editor { min-width: 0; padding: 14px; }
+    .editor { min-width: 0; padding: 14px; overflow: visible; }
     .editor-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 12px; }
     .editor-head h1 { margin: 0; font-size: 16px; }
     .editor-head p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
@@ -175,12 +175,14 @@
     .asset-status .missing { color: var(--warn); }
 
     .stage-shell {
+      --stage-inset: 14px;
+      position: relative;
       display: flex;
       justify-content: center;
       align-items: center;
       min-height: 360px;
-      padding: 14px;
-      overflow: hidden;
+      padding: var(--stage-inset);
+      overflow: visible;
       border: 1px solid rgba(255,255,255,.08);
       border-radius: 13px;
       background-color: #0b0e14;
@@ -200,14 +202,14 @@
     }
     /* 加载提示统一由 .stage-message 呈现，避免两个文字层叠加。 */
     .stage.loading::after { content: none; display: none; }
-    .background-layer, .overlay-layer, .slot-layer, .transform-layer, .stage-message { position: absolute; inset: 0; }
+    .background-layer, .overlay-layer, .slot-layer, .stage-message { position: absolute; inset: 0; }
     .background-layer { z-index: 1; background: #303746 center / cover no-repeat; }
     .overlay-layer { z-index: 2; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
     #slotLayer { z-index: 3; }
     #coverLayer { z-index: 4; }
     #titleLayer { z-index: 5; }
     #watermaskLayer { z-index: 6; }
-    #transformLayer { z-index: 7; pointer-events: none; }
+    #transformLayer { position: absolute; z-index: 20; inset: var(--stage-inset); overflow: visible; pointer-events: none; }
     .stage-message {
       z-index: 10;
       display: grid;
@@ -396,7 +398,7 @@
       .drawer-panel { position: static; max-height: none; }
       .drawer-panel .panel-body { overflow: visible; }
       .layer-list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-      .stage-shell { padding: 10px; }
+      .stage-shell { --stage-inset: 10px; padding: var(--stage-inset); }
     }
     @media (max-width: 760px) {
       .app { width: calc(100% - 16px); padding-top: 8px; }
@@ -450,9 +452,9 @@
             <img class="overlay-layer" id="coverLayer" alt="" hidden>
             <img class="overlay-layer" id="titleLayer" alt="" hidden>
             <img class="overlay-layer" id="watermaskLayer" alt="" hidden>
-            <div class="transform-layer" id="transformLayer"></div>
             <div class="stage-message" id="stageMessage">正在读取模板…</div>
           </div>
+          <div class="transform-layer" id="transformLayer"></div>
         </div>
         <div class="editor-foot"><span><strong>图层：</strong>背景 → Frame → 蒙版内容 → Cover → Title</span><span id="maskSummary">等待蒙版</span></div>
         <section class="layer-window" aria-label="图层显示窗口">
