@@ -331,14 +331,15 @@
     .layer-window small { color: var(--muted); font-size: 11px; }
     .layer-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
     .layer-row { display: flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 7px; cursor: pointer; color: var(--muted); border: 1px solid var(--line); border-radius: 8px; background: #202636; }
-    .layer-row[hidden], .watermask-selector[hidden] { display: none !important; }
+    .layer-row[hidden], .watermask-selector[hidden], .glass-selector[hidden] { display: none !important; }
     .layer-row.active { color: #f2edff; border-color: #a58eff; background: var(--accent-soft); }
     .layer-row.is-hidden { opacity: .5; text-decoration: line-through; }
-    .watermask-selector { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; min-width: 0; min-height: 34px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: #202636; }
-    .watermask-selector.active { grid-template-columns: 24px minmax(0, 1fr) 24px; border-color: #a58eff; background: var(--accent-soft); }
-    .watermask-selector .layer-row { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-color: transparent; background: transparent; }
-    .watermask-selector .layer-row.active { border-color: transparent; background: transparent; }
-    .watermask-selector:not(.active) .watermask-arrow { display: none; }
+    .watermask-selector, .glass-selector { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; min-width: 0; min-height: 34px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: #202636; }
+    .watermask-selector.active, .glass-selector.active { grid-template-columns: 24px minmax(0, 1fr) 24px; border-color: #a58eff; background: var(--accent-soft); }
+    .watermask-selector .layer-row, .glass-selector .layer-row { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-color: transparent; background: transparent; }
+    .watermask-selector .layer-row.active, .glass-selector .layer-row.active { border-color: transparent; background: transparent; }
+    .watermask-selector:not(.active) .watermask-arrow, .glass-selector:not(.active) .glass-arrow { display: none; }
+    .glass-noise-layer { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: soft-light; background-repeat: repeat; }
     .watermask-arrow { width: 24px; height: 28px; padding: 0; cursor: pointer; color: #ded5ff; border: 0; border-radius: 6px; background: transparent; }
     .watermask-arrow:hover:not(:disabled) { border-color: #a58eff; background: var(--accent-soft); }
     .watermask-arrow:disabled { cursor: not-allowed; opacity: .35; }
@@ -462,7 +463,7 @@
         <div class="stage-shell">
           <div class="stage" id="stage">
             <div class="background-layer" id="backgroundLayer"></div>
-            <div class="glass-layer" id="glassLayer" hidden></div>
+            <div class="glass-layer" id="glassLayer" hidden><div class="glass-noise-layer" id="glassNoiseLayer"></div></div>
             <img class="overlay-layer" id="frameLayer" alt="" hidden>
             <div class="slot-layer" id="slotLayer"></div>
             <img class="overlay-layer" id="coverLayer" alt="" hidden>
@@ -477,7 +478,7 @@
           <div class="layer-window-head"><h2>图层显示窗口</h2><small id="activeLayerName">背景</small><button class="layer-visibility" id="layerVisibility" type="button" hidden></button></div>
           <div class="layer-list" id="layerList">
             <button class="layer-row active" type="button" data-layer="background">背景</button>
-            <button class="layer-row" type="button" data-layer="glass">毛玻璃</button>
+            <div class="glass-selector" id="glassSelector"><button class="glass-arrow" id="glassPrev" type="button" aria-label="上一个玻璃噪波">‹</button><button class="layer-row" id="glassSelect" type="button" data-layer="glass">毛玻璃</button><button class="glass-arrow" id="glassNext" type="button" aria-label="下一个玻璃噪波">›</button></div>
             <button class="layer-row" type="button" data-layer="frame">Frame</button>
             <button class="layer-row" type="button" data-layer="cover">Cover</button>
             <button class="layer-row" type="button" data-layer="title">Title</button>
@@ -488,6 +489,8 @@
             <div class="layer-control" id="saturationControlWrap"><label>饱和度 <output id="saturationValue">100%</output></label><input id="saturationControl" type="range" min="0" max="200" value="100"></div>
             <div class="layer-control" id="brightnessControlWrap"><label>亮度 <output id="brightnessValue">100%</output></label><input id="brightnessControl" type="range" min="0" max="200" value="100"></div>
             <div class="layer-control" id="blurControlWrap"><label><span id="blurLabel">模糊度</span> <output id="blurValue">0px</output></label><input id="blurControl" type="range" min="0" max="30" step="0.5" value="0"></div>
+            <div class="layer-control" id="noiseScaleControlWrap" hidden><label>噪波缩放 <output id="noiseScaleValue">160px</output></label><input id="noiseScaleControl" type="range" min="40" max="400" step="1" value="160"></div>
+            <div class="layer-control" id="noiseStrengthControlWrap" hidden><label>噪波强度 <output id="noiseStrengthValue">20%</output></label><input id="noiseStrengthControl" type="range" min="0" max="100" step="1" value="20"></div>
             <div class="layer-control" id="opacityControlWrap" hidden><label>透明度 <output id="opacityValue">100%</output></label><input id="opacityControl" type="range" min="0" max="100" value="100"></div>
           </div>
         </section>
@@ -526,6 +529,35 @@
     const BACKGROUND_DATABASE_RECORD = 'current';
     const BACKGROUND_SELECTION_RECORD = 'selected';
     const LAYER_NAMES = { background: '背景', glass: '毛玻璃', frame: 'Frame', cover: 'Cover', title: 'Title', watermask: 'Watermask' };
+    const GLASS_NOISE_NAMES = ['细颗粒', '霜雾', '水波', '晶砂'];
+
+    function createGlassNoiseTexture(kind) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 160;
+      const context = canvas.getContext('2d');
+      const pixels = context.createImageData(canvas.width, canvas.height);
+      let seed = 7919 + kind * 104729;
+      const random = () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return seed / 4294967296;
+      };
+      for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+          const index = (y * canvas.width + x) * 4;
+          const grain = random() * 2 - 1;
+          const wave = Math.sin((x + y) * .11) * .35 + Math.sin((x - y) * .07) * .2;
+          const value = kind === 0 ? 128 + grain * 76
+            : kind === 1 ? 128 + grain * 28 + Math.sin(y * .19) * 17
+              : kind === 2 ? 128 + wave * 90 + grain * 16
+                : 128 + Math.sign(grain) * 48 + Math.sin(x * .42) * 18;
+          pixels.data[index] = pixels.data[index + 1] = pixels.data[index + 2] = Math.max(0, Math.min(255, value));
+          pixels.data[index + 3] = 255;
+        }
+      }
+      context.putImageData(pixels, 0, 0);
+      return { name: GLASS_NOISE_NAMES[kind], canvas, source: canvas.toDataURL('image/png') };
+    }
+    const GLASS_NOISES = GLASS_NOISE_NAMES.map((_, index) => createGlassNoiseTexture(index));
 
     let backgroundSaveQueue = Promise.resolve();
 
@@ -542,6 +574,7 @@
       assets: { frame: null, mask: null, glass: null, cover: null, title: null, watermask: null },
       watermasks: [],
       watermaskIndex: 0,
+      glassNoiseIndex: 0,
       maskWidth: 0,
       maskHeight: 0,
       slots: [],
@@ -560,7 +593,7 @@
       layerVisibility: { cover: true, title: true, watermask: false },
       layerAdjustments: {
         background: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
-        glass: { hue: 0, saturation: 100, brightness: 100, blur: 12 },
+        glass: { hue: 0, saturation: 100, brightness: 100, blur: 12, noiseScale: 160, noiseStrength: 20 },
         frame: { hue: 0, saturation: 100, brightness: 100, blur: 0, opacity: 100 },
         cover: { hue: 0, saturation: 100, brightness: 100, blur: 0, opacity: 100 },
         title: { hue: 0, saturation: 100, brightness: 100, blur: 0, opacity: 100 },
@@ -578,6 +611,7 @@
       stage: document.getElementById('stage'),
       backgroundLayer: document.getElementById('backgroundLayer'),
       glassLayer: document.getElementById('glassLayer'),
+      glassNoiseLayer: document.getElementById('glassNoiseLayer'),
       frameLayer: document.getElementById('frameLayer'),
       coverLayer: document.getElementById('coverLayer'),
       titleLayer: document.getElementById('titleLayer'),
@@ -603,21 +637,31 @@
       brightnessControlWrap: document.getElementById('brightnessControlWrap'),
       blurControlWrap: document.getElementById('blurControlWrap'),
       blurLabel: document.getElementById('blurLabel'),
+      noiseScaleControlWrap: document.getElementById('noiseScaleControlWrap'),
+      noiseStrengthControlWrap: document.getElementById('noiseStrengthControlWrap'),
       hueLabel: document.getElementById('hueLabel'),
       hueControl: document.getElementById('hueControl'),
       saturationControl: document.getElementById('saturationControl'),
       brightnessControl: document.getElementById('brightnessControl'),
       blurControl: document.getElementById('blurControl'),
+      noiseScaleControl: document.getElementById('noiseScaleControl'),
+      noiseStrengthControl: document.getElementById('noiseStrengthControl'),
       opacityControl: document.getElementById('opacityControl'),
       opacityControlWrap: document.getElementById('opacityControlWrap'),
       watermaskSelector: document.getElementById('watermaskSelector'),
       watermaskSelect: document.getElementById('watermaskSelect'),
       watermaskPrev: document.getElementById('watermaskPrev'),
       watermaskNext: document.getElementById('watermaskNext'),
+      glassSelector: document.getElementById('glassSelector'),
+      glassSelect: document.getElementById('glassSelect'),
+      glassPrev: document.getElementById('glassPrev'),
+      glassNext: document.getElementById('glassNext'),
       hueValue: document.getElementById('hueValue'),
       saturationValue: document.getElementById('saturationValue'),
       brightnessValue: document.getElementById('brightnessValue'),
       blurValue: document.getElementById('blurValue'),
+      noiseScaleValue: document.getElementById('noiseScaleValue'),
+      noiseStrengthValue: document.getElementById('noiseStrengthValue'),
       opacityValue: document.getElementById('opacityValue')
     };
 
@@ -653,7 +697,8 @@
         const strength = state.layerAdjustments.glass.blur;
         els.glassLayer.style.backdropFilter = `blur(${strength}px)`;
         els.glassLayer.style.webkitBackdropFilter = `blur(${strength}px)`;
-        els.glassLayer.hidden = !state.assets.glass || strength <= 0;
+        els.glassLayer.hidden = !state.assets.glass || (strength <= 0 && state.layerAdjustments.glass.noiseStrength <= 0);
+        applyGlassNoise();
       }
       if (!layer || layer === 'frame') {
         els.frameLayer.style.filter = layerFilter('frame');
@@ -694,6 +739,10 @@
       els.brightnessValue.textContent = `${adjustment.brightness}%`;
       els.blurValue.textContent = `${adjustment.blur}px`;
       els.opacityValue.textContent = `${adjustment.opacity ?? 100}%`;
+      els.noiseScaleControl.value = adjustment.noiseScale ?? 160;
+      els.noiseStrengthControl.value = adjustment.noiseStrength ?? 20;
+      els.noiseScaleValue.textContent = `${adjustment.noiseScale ?? 160}px`;
+      els.noiseStrengthValue.textContent = `${adjustment.noiseStrength ?? 20}%`;
       const isFrame = layer === 'frame';
       const isGlass = layer === 'glass';
       els.hueControlWrap.hidden = isFrame || isGlass;
@@ -702,7 +751,14 @@
       els.blurControlWrap.hidden = isFrame;
       els.hueLabel.textContent = '色相';
       els.blurLabel.textContent = isGlass ? '毛玻璃强度' : '模糊度';
+      els.noiseScaleControlWrap.hidden = !isGlass;
+      els.noiseStrengthControlWrap.hidden = !isGlass;
       els.opacityControlWrap.hidden = !['frame', 'cover', 'title', 'watermask'].includes(layer);
+      els.glassSelector.hidden = !state.assets.glass;
+      els.glassSelector.classList.toggle('active', layer === 'glass');
+      els.glassSelect.textContent = `毛玻璃 · ${GLASS_NOISES[state.glassNoiseIndex].name}`;
+      els.glassPrev.disabled = GLASS_NOISES.length < 2;
+      els.glassNext.disabled = GLASS_NOISES.length < 2;
       els.watermaskSelector.hidden = !state.assets.watermask;
       els.watermaskSelector.classList.toggle('active', layer === 'watermask');
       els.watermaskSelect.textContent = state.watermasks[state.watermaskIndex]?.name || 'Watermask';
@@ -842,6 +898,20 @@
 
     function cycleWatermask(direction) {
       setWatermask(state.watermaskIndex + direction);
+    }
+
+    function applyGlassNoise() {
+      const adjustment = state.layerAdjustments.glass;
+      const texture = GLASS_NOISES[state.glassNoiseIndex];
+      els.glassNoiseLayer.style.backgroundImage = `url("${texture.source}")`;
+      els.glassNoiseLayer.style.backgroundSize = `${adjustment.noiseScale}px ${adjustment.noiseScale}px`;
+      els.glassNoiseLayer.style.opacity = String(adjustment.noiseStrength / 100);
+    }
+
+    function cycleGlassNoise(direction) {
+      state.glassNoiseIndex = (state.glassNoiseIndex + direction + GLASS_NOISES.length) % GLASS_NOISES.length;
+      applyGlassNoise();
+      renderLayerWindow();
     }
 
     async function loadWatermasks() {
@@ -1683,7 +1753,7 @@
     function drawGlass(context, width, height) {
       const asset = state.assets.glass;
       const strength = state.layerAdjustments.glass.blur;
-      if (!asset || strength <= 0) return;
+      if (!asset || (strength <= 0 && state.layerAdjustments.glass.noiseStrength <= 0)) return;
       const glassCanvas = document.createElement('canvas');
       glassCanvas.width = width;
       glassCanvas.height = height;
@@ -1708,6 +1778,27 @@
       }
       maskContext.putImageData(pixels, 0, 0);
       glassContext.drawImage(maskCanvas, 0, 0);
+      const noiseStrength = state.layerAdjustments.glass.noiseStrength;
+      if (noiseStrength > 0) {
+        const texture = GLASS_NOISES[state.glassNoiseIndex];
+        const tileSize = state.layerAdjustments.glass.noiseScale;
+        const noiseCanvas = document.createElement('canvas');
+        noiseCanvas.width = width;
+        noiseCanvas.height = height;
+        const noiseContext = noiseCanvas.getContext('2d');
+        for (let y = 0; y < height; y += tileSize) {
+          for (let x = 0; x < width; x += tileSize) {
+            noiseContext.drawImage(texture.canvas, x, y, tileSize, tileSize);
+          }
+        }
+        noiseContext.globalCompositeOperation = 'destination-in';
+        noiseContext.drawImage(maskCanvas, 0, 0);
+        glassContext.save();
+        glassContext.globalCompositeOperation = 'soft-light';
+        glassContext.globalAlpha = noiseStrength / 100;
+        glassContext.drawImage(noiseCanvas, 0, 0);
+        glassContext.restore();
+      }
       context.drawImage(glassCanvas, 0, 0);
     }
 
@@ -1824,7 +1915,9 @@
     els.layerVisibility.addEventListener('click', toggleActiveLayerVisibility);
     els.watermaskPrev.addEventListener('click', () => cycleWatermask(-1));
     els.watermaskNext.addEventListener('click', () => cycleWatermask(1));
-    [['hue', els.hueControl], ['saturation', els.saturationControl], ['brightness', els.brightnessControl], ['blur', els.blurControl], ['opacity', els.opacityControl]].forEach(([key, control]) => {
+    els.glassPrev.addEventListener('click', () => cycleGlassNoise(-1));
+    els.glassNext.addEventListener('click', () => cycleGlassNoise(1));
+    [['hue', els.hueControl], ['saturation', els.saturationControl], ['brightness', els.brightnessControl], ['blur', els.blurControl], ['noiseScale', els.noiseScaleControl], ['noiseStrength', els.noiseStrengthControl], ['opacity', els.opacityControl]].forEach(([key, control]) => {
       control.addEventListener('input', () => updateActiveLayerAdjustment(key, control.value));
     });
 
