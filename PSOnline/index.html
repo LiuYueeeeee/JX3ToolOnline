@@ -211,6 +211,7 @@
       mask-repeat: no-repeat;
       mask-position: center;
       mask-size: 100% 100%;
+      mask-mode: luminance;
       -webkit-mask-repeat: no-repeat;
       -webkit-mask-position: center;
       -webkit-mask-size: 100% 100%;
@@ -1690,11 +1691,23 @@
       glassContext.imageSmoothingEnabled = true;
       glassContext.imageSmoothingQuality = 'high';
       glassContext.filter = `blur(${strength}px)`;
-      // 此刻主画布仅包含背景，因此毛玻璃只会模糊背景，不影响 Frame 与蒙版图片。
+      // 此刻主画布包含背景与蒙版内容；Frame 及其后的图层尚未绘制。
       glassContext.drawImage(context.canvas, 0, 0, width, height);
       glassContext.filter = 'none';
       glassContext.globalCompositeOperation = 'destination-in';
-      glassContext.drawImage(asset.image, 0, 0, width, height);
+      // Glass 使用黑白图：白色为有效区域、黑色为透明区域、灰色按亮度渐变。
+      const maskCanvas = document.createElement('canvas');
+      maskCanvas.width = width;
+      maskCanvas.height = height;
+      const maskContext = maskCanvas.getContext('2d', { willReadFrequently: true });
+      maskContext.drawImage(asset.image, 0, 0, width, height);
+      const pixels = maskContext.getImageData(0, 0, width, height);
+      for (let index = 0; index < pixels.data.length; index += 4) {
+        const luminance = .2126 * pixels.data[index] + .7152 * pixels.data[index + 1] + .0722 * pixels.data[index + 2];
+        pixels.data[index + 3] = Math.round(pixels.data[index + 3] * luminance / 255);
+      }
+      maskContext.putImageData(pixels, 0, 0);
+      glassContext.drawImage(maskCanvas, 0, 0);
       context.drawImage(glassCanvas, 0, 0);
     }
 
