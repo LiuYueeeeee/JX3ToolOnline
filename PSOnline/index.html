@@ -216,13 +216,12 @@
       -webkit-mask-size: 100% 100%;
     }
     .overlay-layer { z-index: 2; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
-    #frameLayer { z-index: 3; }
-    #slotLayer { z-index: 4; }
+    #slotLayer { z-index: 2; }
+    #glassLayer { z-index: 3; }
+    #frameLayer { z-index: 4; }
     #coverLayer { z-index: 5; }
     #titleLayer { z-index: 6; }
     #watermaskLayer { z-index: 7; }
-    #titleLayer { z-index: 5; }
-    #watermaskLayer { z-index: 6; }
     #transformLayer { position: absolute; z-index: 20; inset: var(--stage-inset); overflow: visible; pointer-events: none; }
     .stage-message {
       z-index: 10;
@@ -284,8 +283,9 @@
     }
     /* .slot-placeholder 使用 display:grid，需显式覆盖浏览器对 hidden 的默认规则。 */
     .slot-placeholder[hidden] { display: none; }
-    .editor-foot { display: flex; justify-content: space-between; gap: 12px; margin: 10px 2px 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .editor-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 10px 2px 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
     .editor-foot strong { color: #dfe4ed; }
+    .editor-foot .asset-status { max-width: none; margin-left: auto; font-size: inherit; line-height: inherit; }
 
     .upload-zone {
       display: grid;
@@ -457,7 +457,6 @@
       <section class="panel editor" aria-label="编辑画布">
         <div class="editor-head">
           <div><h1 id="editorTitle">模板 01</h1><p>将右侧图库图片拖到任意独立蒙版中；点击图片显示变换框，拖动图片移动，拖动角点缩放或上方圆点旋转。</p></div>
-          <div class="asset-status" id="assetStatus" aria-live="polite"></div>
         </div>
         <div class="stage-shell">
           <div class="stage" id="stage">
@@ -472,7 +471,7 @@
           </div>
           <div class="transform-layer" id="transformLayer"></div>
         </div>
-        <div class="editor-foot"><span><strong>图层：</strong>背景 → 毛玻璃 → Frame → 蒙版内容 → Cover → Title</span><span id="maskSummary">等待蒙版</span></div>
+        <div class="editor-foot"><span><strong>图层：</strong>背景 → 蒙版内容 → 毛玻璃 → Frame → Cover → Title</span><span id="maskSummary">等待蒙版</span><span class="asset-status" id="assetStatus" aria-live="polite"></span></div>
         <section class="layer-window" aria-label="图层显示窗口">
           <div class="layer-window-head"><h2>图层显示窗口</h2><small id="activeLayerName">背景</small><button class="layer-visibility" id="layerVisibility" type="button" hidden></button></div>
           <div class="layer-list" id="layerList">
@@ -1722,8 +1721,6 @@
         context.fillStyle = gradient; context.fillRect(0, 0, width, height);
       }
       context.restore();
-      drawGlass(context, width, height);
-      drawLayer(context, state.assets.frame, width, height, 'frame');
       state.slots.forEach((slot) => {
         if (!slot.record) return;
         const item = document.createElement('canvas');
@@ -1743,6 +1740,8 @@
         itemContext.drawImage(slot.maskCanvas, 0, 0, slot.w, slot.h);
         context.drawImage(item, slot.x, slot.y);
       });
+      drawGlass(context, width, height);
+      drawLayer(context, state.assets.frame, width, height, 'frame');
       if (state.layerVisibility.cover) drawLayer(context, state.assets.cover, width, height, 'cover');
       if (state.layerVisibility.title) drawLayer(context, state.assets.title, width, height, 'title');
       if (state.layerVisibility.watermask) drawLayer(context, state.assets.watermask, width, height, 'watermask');
