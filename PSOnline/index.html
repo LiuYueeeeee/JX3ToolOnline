@@ -340,9 +340,9 @@
     .watermask-selector .layer-row.active, .glass-selector .layer-row.active { border-color: transparent; background: transparent; }
     .watermask-selector:not(.active) .watermask-arrow, .glass-selector:not(.active) .glass-arrow { display: none; }
     .glass-noise-layer { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: soft-light; background-repeat: repeat; }
-    .watermask-arrow { width: 24px; height: 28px; padding: 0; cursor: pointer; color: #ded5ff; border: 0; border-radius: 6px; background: transparent; }
-    .watermask-arrow:hover:not(:disabled) { border-color: #a58eff; background: var(--accent-soft); }
-    .watermask-arrow:disabled { cursor: not-allowed; opacity: .35; }
+    .watermask-arrow, .glass-arrow { width: 24px; height: 28px; padding: 0; cursor: pointer; color: #ded5ff; border: 0; border-radius: 6px; background: transparent; }
+    .watermask-arrow:hover:not(:disabled), .glass-arrow:hover:not(:disabled) { border-color: #a58eff; background: var(--accent-soft); }
+    .watermask-arrow:disabled, .glass-arrow:disabled { cursor: not-allowed; opacity: .35; }
     .layer-controls { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
     .layer-control { min-width: 0; color: var(--muted); font-size: 11px; }
     .layer-control label { display: flex; justify-content: space-between; gap: 5px; }
@@ -529,7 +529,7 @@
     const BACKGROUND_DATABASE_RECORD = 'current';
     const BACKGROUND_SELECTION_RECORD = 'selected';
     const LAYER_NAMES = { background: '背景', glass: '毛玻璃', frame: 'Frame', cover: 'Cover', title: 'Title', watermask: 'Watermask' };
-    const GLASS_NOISE_NAMES = ['细颗粒', '霜雾', '水波', '晶砂'];
+    const GLASS_NOISE_NAMES = ['细颗粒', '霜雾', '水波', '晶砂', '纸张纹理', '画布纹理', '拉丝玻璃', '冰裂纹'];
 
     function createGlassNoiseTexture(kind) {
       const canvas = document.createElement('canvas');
@@ -546,10 +546,15 @@
           const index = (y * canvas.width + x) * 4;
           const grain = random() * 2 - 1;
           const wave = Math.sin((x + y) * .11) * .35 + Math.sin((x - y) * .07) * .2;
-          const value = kind === 0 ? 128 + grain * 76
-            : kind === 1 ? 128 + grain * 28 + Math.sin(y * .19) * 17
-              : kind === 2 ? 128 + wave * 90 + grain * 16
-                : 128 + Math.sign(grain) * 48 + Math.sin(x * .42) * 18;
+          let value;
+          if (kind === 0) value = 128 + grain * 76; // 细颗粒
+          else if (kind === 1) value = 128 + grain * 28 + Math.sin(y * .19) * 17; // 霜雾
+          else if (kind === 2) value = 128 + wave * 90 + grain * 16; // 水波
+          else if (kind === 3) value = 128 + Math.sign(grain) * 48 + Math.sin(x * .42) * 18; // 晶砂
+          else if (kind === 4) value = 132 + grain * 24 + Math.sin(y * .34 + Math.sin(x * .08)) * 17 + Math.sin(x * .025) * 10; // 纸张纤维
+          else if (kind === 5) value = 128 + grain * 18 + Math.sin(x * .26) * 26 + Math.sin(y * .26) * 26; // 画布经纬
+          else if (kind === 6) value = 128 + Math.sin(x * .33 + Math.sin(y * .09) * 1.8) * 66 + grain * 10; // 拉丝
+          else value = 128 + Math.sin((x * .18) + Math.sin(y * .12) * 2.5) * 30 + Math.sin((x + y) * .07) * 28 + grain * 20; // 冰裂
           pixels.data[index] = pixels.data[index + 1] = pixels.data[index + 2] = Math.max(0, Math.min(255, value));
           pixels.data[index + 3] = 255;
         }
