@@ -24,6 +24,11 @@
       "id": "05",
       "name": "6格鸡蛋",
       "source": "mask/mask05.png"
+    },
+    {
+      "id": "06",
+      "name": "模糊背景",
+      "source": "mask/mask06.png"
     }
   ]
 }
