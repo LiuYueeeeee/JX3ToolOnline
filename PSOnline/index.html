@@ -467,10 +467,10 @@
             <div class="watermask-selector" id="watermaskSelector"><button class="watermask-arrow" id="watermaskPrev" type="button" aria-label="上一个水印">‹</button><button class="layer-row" id="watermaskSelect" type="button" data-layer="watermask">Watermask</button><button class="watermask-arrow" id="watermaskNext" type="button" aria-label="下一个水印">›</button></div>
           </div>
           <div class="layer-controls" id="layerControls">
-            <div class="layer-control"><label>色相 <output id="hueValue">0°</output></label><input id="hueControl" type="range" min="-180" max="180" value="0"></div>
-            <div class="layer-control"><label>饱和度 <output id="saturationValue">100%</output></label><input id="saturationControl" type="range" min="0" max="200" value="100"></div>
-            <div class="layer-control"><label>亮度 <output id="brightnessValue">100%</output></label><input id="brightnessControl" type="range" min="0" max="200" value="100"></div>
-            <div class="layer-control"><label>模糊度 <output id="blurValue">0px</output></label><input id="blurControl" type="range" min="0" max="20" step="0.5" value="0"></div>
+            <div class="layer-control" id="hueControlWrap"><label><span id="hueLabel">色相</span> <output id="hueValue">0°</output></label><input id="hueControl" type="range" min="-180" max="180" value="0"></div>
+            <div class="layer-control" id="saturationControlWrap"><label>饱和度 <output id="saturationValue">100%</output></label><input id="saturationControl" type="range" min="0" max="200" value="100"></div>
+            <div class="layer-control" id="brightnessControlWrap"><label>亮度 <output id="brightnessValue">100%</output></label><input id="brightnessControl" type="range" min="0" max="200" value="100"></div>
+            <div class="layer-control" id="blurControlWrap"><label>模糊度 <output id="blurValue">0px</output></label><input id="blurControl" type="range" min="0" max="20" step="0.5" value="0"></div>
             <div class="layer-control" id="opacityControlWrap" hidden><label>透明度 <output id="opacityValue">100%</output></label><input id="opacityControl" type="range" min="0" max="100" value="100"></div>
           </div>
         </section>
@@ -543,7 +543,7 @@
       layerVisibility: { cover: true, title: true, watermask: false },
       layerAdjustments: {
         background: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
-        frame: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
+        frame: { hue: 0, saturation: 100, brightness: 100, blur: 0, opacity: 100 },
         cover: { hue: 0, saturation: 100, brightness: 100, blur: 0, opacity: 100 },
         title: { hue: 0, saturation: 100, brightness: 100, blur: 0, opacity: 100 },
         watermask: { hue: 0, saturation: 100, brightness: 100, blur: 0, opacity: 100 }
@@ -579,6 +579,11 @@
       layerList: document.getElementById('layerList'),
       activeLayerName: document.getElementById('activeLayerName'),
       layerVisibility: document.getElementById('layerVisibility'),
+      hueControlWrap: document.getElementById('hueControlWrap'),
+      saturationControlWrap: document.getElementById('saturationControlWrap'),
+      brightnessControlWrap: document.getElementById('brightnessControlWrap'),
+      blurControlWrap: document.getElementById('blurControlWrap'),
+      hueLabel: document.getElementById('hueLabel'),
       hueControl: document.getElementById('hueControl'),
       saturationControl: document.getElementById('saturationControl'),
       brightnessControl: document.getElementById('brightnessControl'),
@@ -624,7 +629,10 @@
 
     function applyLayerEffects(layer) {
       if (!layer || layer === 'background') els.backgroundLayer.style.filter = layerFilter('background');
-      if (!layer || layer === 'frame') els.frameLayer.style.filter = layerFilter('frame');
+      if (!layer || layer === 'frame') {
+        els.frameLayer.style.filter = layerFilter('frame');
+        els.frameLayer.style.opacity = String(state.layerAdjustments.frame.opacity / 100);
+      }
       if (!layer || layer === 'cover') {
         els.coverLayer.style.filter = layerFilter('cover');
         els.coverLayer.style.opacity = String(state.layerAdjustments.cover.opacity / 100);
@@ -640,13 +648,15 @@
     }
 
     function renderLayerWindow() {
+      if (state.activeLayer !== 'background' && !state.assets[state.activeLayer]) state.activeLayer = 'background';
       const layer = state.activeLayer;
       const adjustment = state.layerAdjustments[layer];
       els.activeLayerName.textContent = LAYER_NAMES[layer];
       els.layerList.querySelectorAll('[data-layer]').forEach((button) => {
         const name = button.dataset.layer;
+        button.hidden = name !== 'background' && !state.assets[name];
         button.classList.toggle('active', name === layer);
-        button.classList.toggle('is-hidden', (name === 'cover' || name === 'title') && !state.layerVisibility[name]);
+        button.classList.toggle('is-hidden', (name === 'cover' || name === 'title' || name === 'watermask') && !state.layerVisibility[name]);
       });
       els.hueControl.value = adjustment.hue;
       els.saturationControl.value = adjustment.saturation;
@@ -658,7 +668,14 @@
       els.brightnessValue.textContent = `${adjustment.brightness}%`;
       els.blurValue.textContent = `${adjustment.blur}px`;
       els.opacityValue.textContent = `${adjustment.opacity ?? 100}%`;
-      els.opacityControlWrap.hidden = !['cover', 'title', 'watermask'].includes(layer);
+      const isFrame = layer === 'frame';
+      els.hueControlWrap.hidden = false;
+      els.saturationControlWrap.hidden = isFrame;
+      els.brightnessControlWrap.hidden = isFrame;
+      els.blurControlWrap.hidden = isFrame;
+      els.hueLabel.textContent = isFrame ? '染色' : '色相';
+      els.opacityControlWrap.hidden = !['frame', 'cover', 'title', 'watermask'].includes(layer);
+      els.watermaskSelector.hidden = !state.assets.watermask;
       els.watermaskSelector.classList.toggle('active', layer === 'watermask');
       els.watermaskSelect.textContent = state.watermasks[state.watermaskIndex]?.name || 'Watermask';
       els.watermaskPrev.disabled = state.watermasks.length < 2;
@@ -677,6 +694,11 @@
     }
 
     function selectLayer(layer) {
+      if (layer !== 'background' && !state.assets[layer]) return;
+      if (layer === 'watermask' && !state.layerVisibility.watermask) {
+        state.layerVisibility.watermask = true;
+        applyLayerVisibility('watermask');
+      }
       state.activeLayer = layer;
       renderLayerWindow();
     }
@@ -898,6 +920,7 @@
       setLayer(els.frameLayer, state.assets.frame, 'frame');
       setLayer(els.coverLayer, state.assets.cover, 'cover');
       setLayer(els.titleLayer, state.assets.title, 'title');
+      renderLayerWindow();
       try {
         if (state.assets.mask) parseMask(state.assets.mask.image);
         else {
@@ -928,6 +951,7 @@
       state.optionalLayersLoading = false;
       setLayer(els.coverLayer, state.assets.cover, 'cover');
       setLayer(els.titleLayer, state.assets.title, 'title');
+      renderLayerWindow();
       renderAssetStatus();
     }
 
@@ -1606,7 +1630,7 @@
       if (!asset) return;
       context.save();
       context.filter = layerFilter(layer);
-      if (layer === 'cover' || layer === 'title' || layer === 'watermask') context.globalAlpha = state.layerAdjustments[layer].opacity / 100;
+      if (layer === 'frame' || layer === 'cover' || layer === 'title' || layer === 'watermask') context.globalAlpha = state.layerAdjustments[layer].opacity / 100;
       context.drawImage(asset.image, 0, 0, width, height);
       context.restore();
     }
