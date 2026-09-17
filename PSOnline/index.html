@@ -316,6 +316,7 @@
     .layer-window small { color: var(--muted); font-size: 11px; }
     .layer-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
     .layer-row { display: flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 7px; cursor: pointer; color: var(--muted); border: 1px solid var(--line); border-radius: 8px; background: #202636; }
+    .layer-row[hidden], .watermask-selector[hidden] { display: none !important; }
     .layer-row.active { color: #f2edff; border-color: #a58eff; background: var(--accent-soft); }
     .layer-row.is-hidden { opacity: .5; text-decoration: line-through; }
     .watermask-selector { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; min-width: 0; min-height: 34px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: #202636; }
@@ -669,7 +670,7 @@
       els.blurValue.textContent = `${adjustment.blur}px`;
       els.opacityValue.textContent = `${adjustment.opacity ?? 100}%`;
       const isFrame = layer === 'frame';
-      els.hueControlWrap.hidden = false;
+      els.hueControlWrap.hidden = isFrame;
       els.saturationControlWrap.hidden = isFrame;
       els.brightnessControlWrap.hidden = isFrame;
       els.blurControlWrap.hidden = isFrame;
