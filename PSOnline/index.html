@@ -1020,8 +1020,9 @@
       state.maskHeight = height;
       els.stage.style.aspectRatio = `${width} / ${height}`;
 
-      // 只在受控分辨率上识别连通域，槽位蒙版本身仍从原图裁切，避免大尺寸蒙版阻塞 UI。
-      const maxAnalysisPixels = 400000;
+      // 细分隔线可能只有 1 像素。过度缩小会让相邻白区连通，因此优先以原始分辨率识别；
+      // 仅对超大蒙版降采样，槽位蒙版本身仍从原图裁切。
+      const maxAnalysisPixels = 16000000;
       const analysisScale = Math.min(1, Math.sqrt(maxAnalysisPixels / (width * height)));
       const analysisWidth = Math.max(1, Math.round(width * analysisScale));
       const analysisHeight = Math.max(1, Math.round(height * analysisScale));
