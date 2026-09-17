@@ -202,11 +202,25 @@
     }
     /* 加载提示统一由 .stage-message 呈现，避免两个文字层叠加。 */
     .stage.loading::after { content: none; display: none; }
-    .background-layer, .overlay-layer, .slot-layer, .stage-message { position: absolute; inset: 0; }
+    .background-layer, .glass-layer, .overlay-layer, .slot-layer, .stage-message { position: absolute; inset: 0; }
     .background-layer { z-index: 1; background: #303746 center / cover no-repeat; }
+    .glass-layer {
+      z-index: 2;
+      pointer-events: none;
+      background: rgba(255, 255, 255, .04);
+      mask-repeat: no-repeat;
+      mask-position: center;
+      mask-size: 100% 100%;
+      -webkit-mask-repeat: no-repeat;
+      -webkit-mask-position: center;
+      -webkit-mask-size: 100% 100%;
+    }
     .overlay-layer { z-index: 2; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
-    #slotLayer { z-index: 3; }
-    #coverLayer { z-index: 4; }
+    #frameLayer { z-index: 3; }
+    #slotLayer { z-index: 4; }
+    #coverLayer { z-index: 5; }
+    #titleLayer { z-index: 6; }
+    #watermaskLayer { z-index: 7; }
     #titleLayer { z-index: 5; }
     #watermaskLayer { z-index: 6; }
     #transformLayer { position: absolute; z-index: 20; inset: var(--stage-inset); overflow: visible; pointer-events: none; }
@@ -448,6 +462,7 @@
         <div class="stage-shell">
           <div class="stage" id="stage">
             <div class="background-layer" id="backgroundLayer"></div>
+            <div class="glass-layer" id="glassLayer" hidden></div>
             <img class="overlay-layer" id="frameLayer" alt="" hidden>
             <div class="slot-layer" id="slotLayer"></div>
             <img class="overlay-layer" id="coverLayer" alt="" hidden>
@@ -457,11 +472,12 @@
           </div>
           <div class="transform-layer" id="transformLayer"></div>
         </div>
-        <div class="editor-foot"><span><strong>图层：</strong>背景 → Frame → 蒙版内容 → Cover → Title</span><span id="maskSummary">等待蒙版</span></div>
+        <div class="editor-foot"><span><strong>图层：</strong>背景 → 毛玻璃 → Frame → 蒙版内容 → Cover → Title</span><span id="maskSummary">等待蒙版</span></div>
         <section class="layer-window" aria-label="图层显示窗口">
           <div class="layer-window-head"><h2>图层显示窗口</h2><small id="activeLayerName">背景</small><button class="layer-visibility" id="layerVisibility" type="button" hidden></button></div>
           <div class="layer-list" id="layerList">
             <button class="layer-row active" type="button" data-layer="background">背景</button>
+            <button class="layer-row" type="button" data-layer="glass">毛玻璃</button>
             <button class="layer-row" type="button" data-layer="frame">Frame</button>
             <button class="layer-row" type="button" data-layer="cover">Cover</button>
             <button class="layer-row" type="button" data-layer="title">Title</button>
@@ -471,7 +487,7 @@
             <div class="layer-control" id="hueControlWrap"><label><span id="hueLabel">色相</span> <output id="hueValue">0°</output></label><input id="hueControl" type="range" min="-180" max="180" value="0"></div>
             <div class="layer-control" id="saturationControlWrap"><label>饱和度 <output id="saturationValue">100%</output></label><input id="saturationControl" type="range" min="0" max="200" value="100"></div>
             <div class="layer-control" id="brightnessControlWrap"><label>亮度 <output id="brightnessValue">100%</output></label><input id="brightnessControl" type="range" min="0" max="200" value="100"></div>
-            <div class="layer-control" id="blurControlWrap"><label>模糊度 <output id="blurValue">0px</output></label><input id="blurControl" type="range" min="0" max="20" step="0.5" value="0"></div>
+            <div class="layer-control" id="blurControlWrap"><label><span id="blurLabel">模糊度</span> <output id="blurValue">0px</output></label><input id="blurControl" type="range" min="0" max="30" step="0.5" value="0"></div>
             <div class="layer-control" id="opacityControlWrap" hidden><label>透明度 <output id="opacityValue">100%</output></label><input id="opacityControl" type="range" min="0" max="100" value="100"></div>
           </div>
         </section>
@@ -499,7 +515,7 @@
   <script>
     // 本地 HTML 无法直接枚举目录；按 mask01、mask02…命名规则探测真实存在的蒙版文件。
     const MASK_TEMPLATE_IDS = Array.from({ length: 32 }, (_, index) => String(index + 1).padStart(2, '0'));
-    const ASSET_TYPES = ['frame', 'mask', 'cover', 'title', 'watermask'];
+    const ASSET_TYPES = ['frame', 'mask', 'glass', 'cover', 'title', 'watermask'];
     const REQUIRED_TYPES = new Set(['frame', 'mask']);
     // GitHub Pages 首次加载较慢时，不要把仍在传输中的图片误判为缺失。
     const ASSET_LOAD_TIMEOUT_MS = 10000;
@@ -509,7 +525,7 @@
     const BACKGROUND_DATABASE_STORE = 'libraries';
     const BACKGROUND_DATABASE_RECORD = 'current';
     const BACKGROUND_SELECTION_RECORD = 'selected';
-    const LAYER_NAMES = { background: '背景', frame: 'Frame', cover: 'Cover', title: 'Title', watermask: 'Watermask' };
+    const LAYER_NAMES = { background: '背景', glass: '毛玻璃', frame: 'Frame', cover: 'Cover', title: 'Title', watermask: 'Watermask' };
 
     let backgroundSaveQueue = Promise.resolve();
 
@@ -523,7 +539,7 @@
       templateNames: new Map(),
       optionalLayersLoading: false,
       maskParseError: null,
-      assets: { frame: null, mask: null, cover: null, title: null, watermask: null },
+      assets: { frame: null, mask: null, glass: null, cover: null, title: null, watermask: null },
       watermasks: [],
       watermaskIndex: 0,
       maskWidth: 0,
@@ -544,6 +560,7 @@
       layerVisibility: { cover: true, title: true, watermask: false },
       layerAdjustments: {
         background: { hue: 0, saturation: 100, brightness: 100, blur: 0 },
+        glass: { hue: 0, saturation: 100, brightness: 100, blur: 12 },
         frame: { hue: 0, saturation: 100, brightness: 100, blur: 0, opacity: 100 },
         cover: { hue: 0, saturation: 100, brightness: 100, blur: 0, opacity: 100 },
         title: { hue: 0, saturation: 100, brightness: 100, blur: 0, opacity: 100 },
@@ -560,6 +577,7 @@
       assetStatus: document.getElementById('assetStatus'),
       stage: document.getElementById('stage'),
       backgroundLayer: document.getElementById('backgroundLayer'),
+      glassLayer: document.getElementById('glassLayer'),
       frameLayer: document.getElementById('frameLayer'),
       coverLayer: document.getElementById('coverLayer'),
       titleLayer: document.getElementById('titleLayer'),
@@ -584,6 +602,7 @@
       saturationControlWrap: document.getElementById('saturationControlWrap'),
       brightnessControlWrap: document.getElementById('brightnessControlWrap'),
       blurControlWrap: document.getElementById('blurControlWrap'),
+      blurLabel: document.getElementById('blurLabel'),
       hueLabel: document.getElementById('hueLabel'),
       hueControl: document.getElementById('hueControl'),
       saturationControl: document.getElementById('saturationControl'),
@@ -630,6 +649,12 @@
 
     function applyLayerEffects(layer) {
       if (!layer || layer === 'background') els.backgroundLayer.style.filter = layerFilter('background');
+      if (!layer || layer === 'glass') {
+        const strength = state.layerAdjustments.glass.blur;
+        els.glassLayer.style.backdropFilter = `blur(${strength}px)`;
+        els.glassLayer.style.webkitBackdropFilter = `blur(${strength}px)`;
+        els.glassLayer.hidden = !state.assets.glass || strength <= 0;
+      }
       if (!layer || layer === 'frame') {
         els.frameLayer.style.filter = layerFilter('frame');
         els.frameLayer.style.opacity = String(state.layerAdjustments.frame.opacity / 100);
@@ -670,11 +695,13 @@
       els.blurValue.textContent = `${adjustment.blur}px`;
       els.opacityValue.textContent = `${adjustment.opacity ?? 100}%`;
       const isFrame = layer === 'frame';
-      els.hueControlWrap.hidden = isFrame;
-      els.saturationControlWrap.hidden = isFrame;
-      els.brightnessControlWrap.hidden = isFrame;
+      const isGlass = layer === 'glass';
+      els.hueControlWrap.hidden = isFrame || isGlass;
+      els.saturationControlWrap.hidden = isFrame || isGlass;
+      els.brightnessControlWrap.hidden = isFrame || isGlass;
       els.blurControlWrap.hidden = isFrame;
-      els.hueLabel.textContent = isFrame ? '染色' : '色相';
+      els.hueLabel.textContent = '色相';
+      els.blurLabel.textContent = isGlass ? '毛玻璃强度' : '模糊度';
       els.opacityControlWrap.hidden = !['frame', 'cover', 'title', 'watermask'].includes(layer);
       els.watermaskSelector.hidden = !state.assets.watermask;
       els.watermaskSelector.classList.toggle('active', layer === 'watermask');
@@ -861,10 +888,11 @@
       els.reloadTemplate.disabled = false;
 
       if (!state.templateIds.length) {
-        state.assets = { frame: null, mask: null, cover: null, title: null, watermask: state.assets.watermask };
+        state.assets = { frame: null, mask: null, glass: null, cover: null, title: null, watermask: state.assets.watermask };
         state.maskWidth = 0;
         state.maskHeight = 0;
         state.slots = [];
+        setGlassLayer(null);
         setLayer(els.frameLayer, null);
         setLayer(els.coverLayer, null);
         setLayer(els.titleLayer, null);
@@ -898,6 +926,19 @@
       else element.hidden = false;
     }
 
+    function setGlassLayer(asset) {
+      if (!asset) {
+        els.glassLayer.hidden = true;
+        els.glassLayer.style.maskImage = '';
+        els.glassLayer.style.webkitMaskImage = '';
+        return;
+      }
+      const mask = `url("${asset.source}")`;
+      els.glassLayer.style.maskImage = mask;
+      els.glassLayer.style.webkitMaskImage = mask;
+      applyLayerEffects('glass');
+    }
+
     async function switchTemplate(requestedId) {
       const id = String(requestedId).padStart(2, '0');
       const version = ++state.loadVersion;
@@ -916,8 +957,9 @@
       if (version !== state.loadVersion || id !== state.requestedTemplateId) return;
 
       state.templateId = id;
-      state.assets = { frame: null, mask: null, cover: null, title: null, watermask: state.assets.watermask, ...Object.fromEntries(entries) };
+      state.assets = { frame: null, mask: null, glass: null, cover: null, title: null, watermask: state.assets.watermask, ...Object.fromEntries(entries) };
       state.optionalLayersLoading = true;
+      setGlassLayer(null);
       setLayer(els.frameLayer, state.assets.frame, 'frame');
       setLayer(els.coverLayer, state.assets.cover, 'cover');
       setLayer(els.titleLayer, state.assets.title, 'title');
@@ -946,10 +988,11 @@
     }
 
     async function loadOptionalLayers(id, version) {
-      const entries = await Promise.all(['cover', 'title'].map(async (type) => [type, await loadAsset(assetCandidates(type, id))]));
+      const entries = await Promise.all(['glass', 'cover', 'title'].map(async (type) => [type, await loadAsset(assetCandidates(type, id))]));
       if (version !== state.loadVersion || id !== state.requestedTemplateId) return;
       Object.assign(state.assets, Object.fromEntries(entries));
       state.optionalLayersLoading = false;
+      setGlassLayer(state.assets.glass);
       setLayer(els.coverLayer, state.assets.cover, 'cover');
       setLayer(els.titleLayer, state.assets.title, 'title');
       renderLayerWindow();
@@ -958,7 +1001,7 @@
 
     function renderAssetStatus(text) {
       if (text) { els.assetStatus.textContent = text; return; }
-      const names = { frame: 'Frame', mask: 'Mask', cover: 'Cover', title: 'Title', watermask: 'Watermask' };
+      const names = { frame: 'Frame', mask: 'Mask', glass: '毛玻璃', cover: 'Cover', title: 'Title', watermask: 'Watermask' };
       els.assetStatus.innerHTML = ASSET_TYPES.map((type) => {
         const present = Boolean(state.assets[type]);
         const detail = present ? '已加载' : (REQUIRED_TYPES.has(type) ? '未找到（必需）' : (state.optionalLayersLoading ? '加载中（可选）' : '未找到（可选）'));
@@ -1636,6 +1679,25 @@
       context.restore();
     }
 
+    function drawGlass(context, width, height) {
+      const asset = state.assets.glass;
+      const strength = state.layerAdjustments.glass.blur;
+      if (!asset || strength <= 0) return;
+      const glassCanvas = document.createElement('canvas');
+      glassCanvas.width = width;
+      glassCanvas.height = height;
+      const glassContext = glassCanvas.getContext('2d');
+      glassContext.imageSmoothingEnabled = true;
+      glassContext.imageSmoothingQuality = 'high';
+      glassContext.filter = `blur(${strength}px)`;
+      // 此刻主画布仅包含背景，因此毛玻璃只会模糊背景，不影响 Frame 与蒙版图片。
+      glassContext.drawImage(context.canvas, 0, 0, width, height);
+      glassContext.filter = 'none';
+      glassContext.globalCompositeOperation = 'destination-in';
+      glassContext.drawImage(asset.image, 0, 0, width, height);
+      context.drawImage(glassCanvas, 0, 0);
+    }
+
     function exportImage() {
       if (!state.assets.frame || !state.assets.mask || !state.slots.length) return;
       const width = state.maskWidth;
@@ -1659,6 +1721,7 @@
         context.fillStyle = gradient; context.fillRect(0, 0, width, height);
       }
       context.restore();
+      drawGlass(context, width, height);
       drawLayer(context, state.assets.frame, width, height, 'frame');
       state.slots.forEach((slot) => {
         if (!slot.record) return;
