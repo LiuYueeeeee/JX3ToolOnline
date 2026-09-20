@@ -265,9 +265,17 @@
     .transform-handle[data-handle="ne"] { top: -6px; right: -6px; cursor: nesw-resize; }
     .transform-handle[data-handle="se"] { right: -6px; bottom: -6px; cursor: nwse-resize; }
     .transform-handle[data-handle="sw"] { bottom: -6px; left: -6px; cursor: nesw-resize; }
-    .transform-handle[data-handle="rotate"] { top: -31px; left: calc(50% - 5px); border-radius: 50%; cursor: grab; }
-    .transform-handle[data-handle="rotate"]::after { position: absolute; top: 9px; left: 4px; width: 1px; height: 16px; content: ""; background: #c4b6ff; pointer-events: none; }
-    .transform-handle[data-handle="rotate"]:active { cursor: grabbing; }
+    .transform-handle[data-handle^="rotate"] { border-radius: 50%; cursor: grab; }
+    .transform-handle[data-handle^="rotate"]::after { position: absolute; content: ""; background: #c4b6ff; pointer-events: none; }
+    .transform-handle[data-handle="rotate-top"] { top: -31px; left: calc(50% - 5px); }
+    .transform-handle[data-handle="rotate-top"]::after { top: 9px; left: 4px; width: 1px; height: 16px; }
+    .transform-handle[data-handle="rotate-right"] { top: calc(50% - 5px); right: -31px; }
+    .transform-handle[data-handle="rotate-right"]::after { top: 4px; right: 9px; width: 16px; height: 1px; }
+    .transform-handle[data-handle="rotate-bottom"] { bottom: -31px; left: calc(50% - 5px); }
+    .transform-handle[data-handle="rotate-bottom"]::after { bottom: 9px; left: 4px; width: 1px; height: 16px; }
+    .transform-handle[data-handle="rotate-left"] { top: calc(50% - 5px); left: -31px; }
+    .transform-handle[data-handle="rotate-left"]::after { top: 4px; left: 9px; width: 16px; height: 1px; }
+    .transform-handle[data-handle^="rotate"]:active { cursor: grabbing; }
     .slot-placeholder {
       position: absolute;
       inset: 0;
@@ -458,7 +466,7 @@
 
       <section class="panel editor" aria-label="编辑画布">
         <div class="editor-head">
-          <div><h1 id="editorTitle">模板 01</h1><p>将右侧图库图片拖到任意独立蒙版中；点击图片显示变换框，拖动图片移动，拖动角点缩放或上方圆点旋转。</p></div>
+          <div><h1 id="editorTitle">模板 01</h1><p>将右侧图库图片拖到任意独立蒙版中；点击图片显示变换框，拖动图片移动，拖动角点缩放或四边圆点旋转。</p></div>
         </div>
         <div class="stage-shell">
           <div class="stage" id="stage">
@@ -1360,7 +1368,7 @@
       const box = document.createElement('div');
       box.className = 'transform-box';
       box.dataset.slotIndex = String(slot.index);
-      const labels = { nw: '左上角缩放', ne: '右上角缩放', se: '右下角缩放', sw: '左下角缩放', rotate: '旋转图片' };
+      const labels = { nw: '左上角缩放', ne: '右上角缩放', se: '右下角缩放', sw: '左下角缩放', 'rotate-top': '从上边旋转', 'rotate-right': '从右边旋转', 'rotate-bottom': '从下边旋转', 'rotate-left': '从左边旋转' };
       Object.keys(labels).forEach((handleType) => {
         const handle = document.createElement('button');
         handle.type = 'button';
@@ -1381,7 +1389,7 @@
       const { width, height } = slotImageSize(slot);
       const center = { x: slot.x + slot.imageX + width / 2, y: slot.y + slot.imageY + height / 2 };
       const transform = { index, pointerId: event.pointerId, handleType, startScale: slot.scale, startRotation: slot.rotation, width, height, center };
-      if (handleType === 'rotate') {
+      if (handleType.startsWith('rotate-')) {
         const point = pointerToStage(event);
         transform.startPointerAngle = Math.atan2(point.y - center.y, point.x - center.x);
       } else {
@@ -1402,7 +1410,7 @@
       const slot = state.slots[transform.index];
       if (!slot?.record) return false;
       const point = pointerToStage(event);
-      if (transform.handleType === 'rotate') {
+      if (transform.handleType.startsWith('rotate-')) {
         const angle = Math.atan2(point.y - transform.center.y, point.x - transform.center.x);
         let rotation = transform.startRotation + (angle - transform.startPointerAngle) * 180 / Math.PI;
         if (event.shiftKey) rotation = Math.round(rotation / 15) * 15;
