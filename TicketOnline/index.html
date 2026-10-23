@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="剑网3门派主题票根在线制作工具">
+  <title>门派主题票根制作 · 剑网3创作工具中心</title>
+  <style>
+    :root {
+      --page: #090b10;
+      --panel: rgba(23, 27, 39, .96);
+      --panel-strong: #171b27;
+      --line: rgba(255, 255, 255, .1);
+      --text: #f5f7fb;
+      --muted: #9ca7bb;
+      --accent: #f7de5a;
+      --accent-soft: rgba(247, 222, 90, .16);
+    }
+    @font-face {
+      font-family: "LiXuke";
+      src: url("LiXuke.ttf") format("truetype");
+      font-display: swap;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body {
+      min-width: 0;
+      min-height: 0;
+      height: 100dvh;
+      margin: 0;
+      color: var(--text);
+      font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(circle at 12% -10%, rgba(117, 86, 235, .28), transparent 32%), radial-gradient(circle at 88% 9%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 26%), var(--page);
+    }
+
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+
+    .app { display: grid; grid-template-columns: minmax(0, 1fr) clamp(330px, 28vw, 410px); grid-template-rows: auto minmax(0, 1fr); column-gap: 16px; row-gap: 12px; width: min(1480px, calc(100% - 40px)); height: 100dvh; margin: 0 auto; padding: 8px 0; overflow: hidden; }
+    .topbar, .panel { border: 1px solid var(--line); border-radius: 18px; background: var(--panel); box-shadow: 0 18px 48px rgba(0, 0, 0, .26); }
+    .topbar { display: flex; grid-column: 1; grid-row: 1; align-items: center; justify-content: space-between; gap: 18px; padding: 11px 16px; }
+    .brand, .brand-copy { display: flex; align-items: center; min-width: 0; }
+    .brand { gap: 13px; }
+    .brand-mark { display: grid; flex: 0 0 auto; width: 40px; height: 40px; place-items: center; color: #16120a; font-weight: 900; border-radius: 12px; background: linear-gradient(135deg, #fff1a7, var(--accent)); box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 34%, transparent); }
+    .brand-copy { gap: 10px; }
+    .back-link { color: var(--muted); font-size: 13px; text-decoration: none; transition: color .16s ease; }
+    .back-link:hover { color: var(--text); }
+    .brand strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+    .brand span { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; }
+
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 8px 13px; cursor: pointer; color: #dce3f1; font-size: 13px; font-weight: 700; border: 1px solid var(--line); border-radius: 9px; background: #252b3a; transition: transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease; }
+    .button:hover:not(:disabled) { transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent) 56%, var(--line)); background: #343c50; }
+    .button.primary { color: #201a08; border-color: transparent; background: linear-gradient(135deg, #fff0a0, var(--accent)); box-shadow: 0 9px 20px color-mix(in srgb, var(--accent) 20%, transparent); }
+    .button.primary:hover:not(:disabled) { background: linear-gradient(135deg, #fff5bd, var(--accent)); }
+
+    .workspace { display: contents; }
+    .controls { display: flex; grid-column: 1; grid-row: 2; position: static; min-height: 0; flex-direction: column; overflow: visible; }
+    .panel-heading { padding: 13px 15px 10px; border-bottom: 1px solid var(--line); }
+    .panel-heading h1, .preview-heading h2 { margin: 0; font-size: 17px; }
+    .panel-heading p, .preview-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .control-scroll { display: grid; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 7px; padding: 8px; flex: 1 1 auto; overflow: visible; }
+    .control-group { padding: 9px; border: 1px solid var(--line); border-radius: 10px; background: rgba(8, 11, 17, .28); }
+    .control-group + .control-group { margin-top: 0; }
+    .group-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 7px; color: #e5e9f4; font-size: 13px; font-weight: 800; }
+    .group-tip { margin: 6px 0 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
+    .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .field { display: grid; gap: 4px; min-width: 0; }
+    .field.full { grid-column: 1 / -1; }
+    .field label { color: #aeb9ce; font-size: 11px; }
+    .field input, .field select { width: 100%; min-width: 0; height: 30px; padding: 5px 8px; color: var(--text); outline: none; border: 1px solid var(--line); border-radius: 8px; background-color: #111521; transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease; }
+    .field select { padding-right: 30px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%23d4c6a0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 14px; }
+    .field input:hover, .field select:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background-color: #1b2030; }
+    .field input:focus, .field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+    .field select option { color: var(--text); background: #171b27; }
+    .color-field { display: flex; align-items: center; gap: 8px; }
+    .color-field input[type="color"] { flex: 0 0 42px; width: 42px; padding: 3px; cursor: pointer; }
+    .color-field output { min-width: 0; color: #d9e0ec; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; }
+    .shadow-control { position: relative; display: block; min-width: 0; }
+    .shadow-control input[type="range"] { display: block; width: 100%; }
+    .shadow-control output { position: absolute; right: 0; bottom: calc(100% + 4px); padding-left: 4px; color: #f5e5a4; font-size: 11px; line-height: 1; text-align: right; background: rgba(23, 27, 39, .96); pointer-events: none; }
+
+    .upload-zone { display: grid; min-height: 72px; place-items: center; padding: 10px; cursor: pointer; text-align: center; border: 1px dashed color-mix(in srgb, var(--accent) 50%, #8290a8); border-radius: 10px; background: color-mix(in srgb, var(--accent) 8%, transparent); transition: background .16s ease, border-color .16s ease; }
+    .upload-zone:hover, .upload-zone.dragging { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 17%, transparent); }
+    .upload-zone strong { display: block; color: #f5edca; font-size: 13px; }
+    .upload-zone span { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; line-height: 1.35; }
+    .upload-zone input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+    .photo-actions, .zoom-row { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+    .photo-actions .button { flex: 1; }
+    .zoom-row output { min-width: 43px; color: #f5e5a4; font-size: 12px; text-align: right; }
+    input[type="range"] { flex: 1; height: 18px; cursor: pointer; appearance: none; background: transparent; }
+    input[type="range"]::-webkit-slider-runnable-track { height: 5px; border-radius: 99px; background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 76%, #4a435e), #303746); box-shadow: inset 0 1px 2px rgba(0,0,0,.35); }
+    input[type="range"]::-webkit-slider-thumb { width: 15px; height: 15px; margin-top: -5px; cursor: grab; border: 2px solid #fff7cf; border-radius: 50%; appearance: none; background: var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+    input[type="range"]::-moz-range-track { height: 5px; border-radius: 99px; background: #303746; }
+    input[type="range"]::-moz-range-progress { height: 5px; border-radius: 99px; background: var(--accent); }
+    input[type="range"]::-moz-range-thumb { width: 11px; height: 11px; cursor: grab; border: 2px solid #fff7cf; border-radius: 50%; background: var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+
+    .preview { position: relative; display: flex; grid-column: 2; grid-row: 1 / span 2; min-width: 0; min-height: 0; padding: 8px; flex-direction: column; overflow: visible; }
+    .preview-heading { display: none; align-items: end; justify-content: space-between; gap: 14px; padding: 2px 2px 13px; }
+    .preview-heading > div:last-child { color: #c9d1df; font-size: 11px; text-align: right; }
+    .stage-shell { flex: 1 1 auto; min-height: 0; height: auto; padding: 40px; cursor: grab; overflow: auto; scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior: contain; border: 1px solid rgba(255,255,255,.07); border-radius: 13px; background-color: #0b0e14; background-image: linear-gradient(45deg, rgba(255,255,255,.022) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.022) 75%), linear-gradient(45deg, rgba(255,255,255,.022) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.022) 75%); background-position: 0 0, 10px 10px; background-size: 20px 20px; }
+    .stage-shell::-webkit-scrollbar { width: 0; height: 0; display: none; }
+    .stage-shell.panning { cursor: grabbing; user-select: none; }
+    .ticket-stage { position: relative; isolation: isolate; container-type: inline-size; width: min(100%, clamp(180px, 22vh, 250px)); min-width: 0; margin: 0 auto; overflow: visible; aspect-ratio: 2000 / 5500; touch-action: none; background: #10151e; box-shadow: 0 24px 54px rgba(0,0,0,.45); --faction-color: #f7de5a; --frost-color: #3d5d78; --frost-opacity: .82; --body-shadow-x: 8px; --body-shadow-y: 5px; --body-shadow-blur: 2px; --body-shadow-opacity: .5; }
+    .ticket-stage.dragging { cursor: grabbing; }
+    .ticket-stage::before { position: absolute; z-index: 0; inset: 0; content: ""; opacity: var(--frost-opacity); background: linear-gradient(138deg, rgba(255,255,255,.54), rgba(255,255,255,.1) 46%, rgba(255,255,255,.34)), radial-gradient(circle at 18% 15%, rgba(255,255,255,.56), transparent 37%), radial-gradient(circle at 84% 89%, rgba(255,255,255,.22), transparent 44%), var(--frost-color); backdrop-filter: blur(18px) saturate(142%); }
+    .ticket-layer { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; pointer-events: none; }
+    .body-layer { z-index: 1; filter: drop-shadow(var(--body-shadow-x) var(--body-shadow-y) var(--body-shadow-blur) rgba(18, 13, 27, var(--body-shadow-opacity))); }
+    .middle-canvas { z-index: 2; pointer-events: none; }
+    .photo-canvas { z-index: 3; pointer-events: none; }
+    .photo-layer { z-index: 4; cursor: default; pointer-events: auto; }
+    .photo-layer.has-photo { cursor: grab; }
+    .photo-layer.has-photo.selected { cursor: grab; }
+    .photo-layer.has-photo:not(.selected):hover::after { position: absolute; top: 1.2%; left: 50%; padding: 5px 8px; content: "点击图片显示操作手柄"; transform: translateX(-50%); color: rgba(255,255,255,.96); font-size: 2cqw; white-space: nowrap; border-radius: 99px; background: rgba(5,7,10,.58); pointer-events: none; }
+    .character-photo { display: none; }
+    .photo-empty { position: absolute; top: 38%; left: 50%; display: grid; width: 44%; min-height: 12%; place-items: center; padding: 14px; transform: translate(-50%, -50%); color: rgba(64, 54, 38, .68); font-size: 2.3cqw; font-weight: 700; line-height: 1.65; text-align: center; border: .25cqw dashed rgba(177, 137, 70, .56); border-radius: 1.2cqw; background: rgba(255,255,255,.5); pointer-events: none; }
+    .photo-layer.has-photo .photo-empty { display: none; }
+    .content-layer { z-index: 5; pointer-events: none; }
+    .photo-transform-layer { position: absolute; z-index: 1000; inset: 0; overflow: visible; pointer-events: none; }
+    .transform-box { position: absolute; z-index: 1; border: 1px solid #c4b6ff; box-shadow: 0 0 0 1px rgba(40,29,92,.45); pointer-events: none; transform-origin: center center; }
+    .transform-handle { position: absolute; z-index: 2; width: 10px; height: 10px; padding: 0; border: 1px solid #5d43d7; border-radius: 1px; background: #f4f1ff; box-shadow: 0 1px 3px rgba(0,0,0,.42); pointer-events: auto; }
+    .transform-handle[data-handle="nw"] { top: -6px; left: -6px; cursor: nwse-resize; }
+    .transform-handle[data-handle="ne"] { top: -6px; right: -6px; cursor: nesw-resize; }
+    .transform-handle[data-handle="se"] { right: -6px; bottom: -6px; cursor: nwse-resize; }
+    .transform-handle[data-handle="sw"] { bottom: -6px; left: -6px; cursor: nesw-resize; }
+    .transform-handle[data-handle^="rotate"] { border-radius: 50%; cursor: grab; }
+    .transform-handle[data-handle^="rotate"]::after { position: absolute; content: ""; background: #c4b6ff; pointer-events: none; }
+    .transform-handle[data-handle="rotate-top"] { top: -31px; left: calc(50% - 5px); }
+    .transform-handle[data-handle="rotate-top"]::after { top: 9px; left: 4px; width: 1px; height: 16px; }
+    .transform-handle[data-handle="rotate-right"] { top: calc(50% - 5px); right: -31px; }
+    .transform-handle[data-handle="rotate-right"]::after { top: 4px; right: 9px; width: 16px; height: 1px; }
+    .transform-handle[data-handle="rotate-bottom"] { bottom: -31px; left: calc(50% - 5px); }
+    .transform-handle[data-handle="rotate-bottom"]::after { bottom: 9px; left: 4px; width: 1px; height: 16px; }
+    .transform-handle[data-handle="rotate-left"] { top: calc(50% - 5px); left: -31px; }
+    .transform-handle[data-handle="rotate-left"]::after { top: 4px; left: 9px; width: 16px; height: 1px; }
+    .transform-handle[data-handle^="rotate"]:active { cursor: grabbing; }
+    .ticket-poem { position: absolute; top: 3.51%; left: 83.4%; width: 7.6%; height: 9.3%; color: #16120f; font-family: "STKaiti", "KaiTi", "Kaiti SC", serif; font-size: 3.15cqw; font-weight: 700; letter-spacing: .02em; }
+    .ticket-poem span { position: absolute; top: 0; writing-mode: vertical-rl; text-orientation: upright; white-space: nowrap; line-height: 1.12; }
+    .ticket-poem .poem-right { right: 0; }
+    .ticket-poem .poem-left { top: 0; left: 0; }
+    .role-id { position: absolute; z-index: 2; top: 65.27%; left: 18.35%; display: flex; width: 65.35%; height: 5.4%; align-items: center; justify-content: center; overflow: visible; color: #080807; font-family: "LiXuke", "李旭科经典行书", "STXinwei", "华文新魏", "STKaiti", "KaiTi", serif; font-size: var(--role-id-size, 12.1cqw); font-weight: 700; line-height: 1; letter-spacing: .02em; white-space: nowrap; }
+    .faction-pinyin { position: absolute; z-index: 1; top: 68.6%; left: 19.1%; width: 61.8%; overflow: hidden; color: color-mix(in srgb, var(--faction-color) 34%, #7a7d84); font-family: Georgia, "Times New Roman", serif; font-size: 8.5cqw; line-height: 1; letter-spacing: .145em; text-align: center; white-space: nowrap; opacity: .38; }
+    .faction-logo { position: absolute; top: 72.05%; left: 45.85%; width: 8.8%; height: 4.2%; object-fit: contain; }
+    .ticket-value { position: absolute; display: flex; align-items: center; justify-content: flex-start; overflow: hidden; color: var(--faction-color); font-family: "STKaiti", "KaiTi", "Kaiti SC", serif; font-size: 4.35cqw; font-weight: 900; line-height: 1; text-align: left; white-space: nowrap; }
+    .faction-value { top: 83.38%; left: 28.4%; width: 10.1%; height: 2.05%; }
+    .level-value { top: 83.43%; left: 67.8%; width: 15%; height: 1.9%; }
+    .camp-value { top: 90.94%; left: 28.65%; width: 16.5%; height: 1.85%; }
+    .server-value { top: 90.9%; left: 67.65%; width: 16.7%; height: 1.9%; }
+    .layer-note { display: flex; align-items: center; gap: 8px; margin: 12px 2px 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .preview .layer-note { display: none; }
+    .layer-note i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 13px color-mix(in srgb, var(--accent) 74%, transparent); }
+
+    @media (max-width: 980px) {
+      html, body, .app { height: auto; overflow: auto; }
+      .app { display: flex; min-height: 100vh; flex-direction: column; padding: 12px 0; }
+      .topbar { display: flex; }
+      .workspace { display: block; overflow: visible; }
+      .controls { overflow: visible; }
+      .control-scroll { display: block; height: auto; overflow: visible; }
+      .control-group + .control-group { margin-top: 7px; }
+      .preview { margin-top: 16px; padding: 14px; }
+      .preview-heading { display: flex; }
+      .preview .layer-note { display: flex; }
+      .stage-shell { min-height: 0; height: auto; max-height: 70vh; margin-top: 0; padding: 32px; }
+    }
+    @media (max-width: 620px) {
+      .app { width: calc(100% - 20px); padding-top: 10px; }
+      .topbar { align-items: flex-start; padding: 12px; }
+      .topbar .button { min-height: 34px; padding: 7px 9px; font-size: 12px; }
+      .brand-copy { display: block; }
+      .brand-copy .back-link { display: block; margin-bottom: 4px; }
+      .brand span { display: none; }
+      .preview { padding: 10px; }
+      .preview-heading > div:last-child { display: none; }
+      .stage-shell { padding: 32px; border-radius: 10px; }
+      .ticket-stage { min-width: 270px; }
+      .field-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">票</div>
+        <div class="brand-copy"><div><strong>门派主题票根制作</strong><span>上传角色图 · 编辑票根信息 · 导出成图</span></div></div>
+      </div>
+      <button class="button primary" id="downloadButton" type="button">导出 PNG</button>
+    </header>
+
+    <section class="workspace" aria-label="票根制作工作台">
+      <aside class="panel controls" aria-label="票根编辑控制区">
+        <div class="panel-heading">
+          <h1>票根信息</h1>
+          <p>修改内容会同步显示在票根上；切换门派会替换主题色、Logo 与默认诗词。</p>
+        </div>
+        <div class="control-scroll">
+          <section class="control-group">
+            <h2 class="group-title">角色图片</h2>
+            <label class="upload-zone" id="uploadZone">
+              <input id="photoInput" type="file" accept="image/*">
+              <div><strong id="uploadTitle">上传角色图片</strong><span>点击选择或拖入图片<br>图片将自动限制在角色蒙版内</span></div>
+            </label>
+            <div class="zoom-row" aria-label="图片缩放">
+              <input id="zoomInput" type="range" min="35" max="260" value="100">
+              <output id="zoomOutput">100%</output>
+            </div>
+            <div class="photo-actions">
+              <button class="button" id="resetPhotoButton" type="button">适应蒙版</button>
+              <button class="button" id="clearPhotoButton" type="button">移除图片</button>
+            </div>
+            <p class="group-tip">点击画布内的角色图片显示缩放柄与四向旋转柄；点击空白区域可取消选中。</p>
+          </section>
+
+          <section class="control-group">
+            <h2 class="group-title">底层与阴影</h2>
+            <div class="field">
+              <label for="frostColorInput">磨砂底色</label>
+              <div class="color-field"><input id="frostColorInput" type="color" value="#3d5d78"><output id="frostColorOutput">#3D5D78</output></div>
+            </div>
+            <div class="field-grid" style="margin-top: 7px;">
+              <div class="field"><label for="shadowXInput">阴影横向</label><div class="shadow-control"><input id="shadowXInput" type="range" min="-20" max="20" value="8"><output id="shadowXOutput">8 px</output></div></div>
+              <div class="field"><label for="shadowYInput">阴影纵向</label><div class="shadow-control"><input id="shadowYInput" type="range" min="-20" max="20" value="5"><output id="shadowYOutput">5 px</output></div></div>
+              <div class="field"><label for="shadowBlurInput">阴影模糊</label><div class="shadow-control"><input id="shadowBlurInput" type="range" min="0" max="5" value="2"><output id="shadowBlurOutput">2 px</output></div></div>
+              <div class="field"><label for="shadowOpacityInput">阴影不透明度</label><div class="shadow-control"><input id="shadowOpacityInput" type="range" min="0" max="100" value="50"><output id="shadowOpacityOutput">50%</output></div></div>
+            </div>
+          </section>
+
+          <section class="control-group">
+            <h2 class="group-title">门派主题</h2>
+            <div class="field">
+              <label for="factionSelect">选择门派</label>
+              <select id="factionSelect"></select>
+            </div>
+            <div class="field" style="margin-top: 7px;">
+              <label for="factionColorInput">门派染色</label>
+              <div class="color-field"><input id="factionColorInput" type="color" value="#f7de5a"><output id="factionColorOutput">#F7DE5A</output></div>
+            </div>
+            <p class="group-tip">切换门派会载入对应主题色；可用色盘微调 Middle 装饰层、Logo 与副票根文字。</p>
+          </section>
+
+          <section class="control-group">
+            <h2 class="group-title">主票根文字</h2>
+            <div class="field-grid">
+              <div class="field full"><label for="roleIdInput">角色 ID</label><input id="roleIdInput" type="text" maxlength="14" value="云栖松子酱"></div>
+              <div class="field full"><label for="pinyinInput">门派拼音（角色 ID 背后）</label><input id="pinyinInput" type="text" maxlength="24" value="CANGJIAN"></div>
+            </div>
+          </section>
+
+          <section class="control-group">
+            <h2 class="group-title">右上角门派诗词</h2>
+            <div class="field-grid">
+              <div class="field"><label for="poemRightInput">右列</label><input id="poemRightInput" type="text" maxlength="12" value="逍遥此身君子意"></div>
+              <div class="field"><label for="poemLeftInput">左列</label><input id="poemLeftInput" type="text" maxlength="12" value="一壶温酒向长空"></div>
+            </div>
+          </section>
+
+          <section class="control-group">
+            <h2 class="group-title">副票根文字</h2>
+            <div class="field-grid">
+              <div class="field"><label for="levelInput">等级</label><select id="levelInput"><option value="130级" selected>130级</option><option value="50级">50级</option></select></div>
+              <div class="field"><label for="campInput">阵营</label><select id="campInput"><option value="浩气盟">浩气盟</option><option value="恶人谷" selected>恶人谷</option><option value="中立">中立</option></select></div>
+              <div class="field full"><label for="serverInput">服务器</label><input id="serverInput" type="text" maxlength="12" value="长安城"></div>
+            </div>
+          </section>
+        </div>
+      </aside>
+
+      <section class="panel preview" aria-label="票根预览">
+        <div class="preview-heading">
+          <div><h2>实时预览</h2><p>磨砂底色 → Body（阴影）→ Middle → Mask 角色图 → 门派文字与 Logo</p></div>
+          <div>成图尺寸<br><strong>2000 × 5500 px</strong></div>
+        </div>
+        <div class="stage-shell" id="stageShell" aria-label="票根预览区，可使用鼠标滚轮缩放">
+          <div class="ticket-stage" id="ticketStage" aria-label="票根画布">
+            <img class="ticket-layer body-layer" id="bodyImage" src="Body.png" alt="">
+            <canvas class="ticket-layer middle-canvas" id="middleCanvas" width="2000" height="5500" aria-hidden="true"></canvas>
+            <canvas class="ticket-layer photo-canvas" id="photoCanvas" width="2000" height="5500" aria-hidden="true"></canvas>
+            <div class="ticket-layer photo-layer" id="photoLayer">
+              <img class="character-photo" id="characterPhoto" alt="上传的角色图片">
+              <div class="photo-empty">上传一张角色图片<br>点击后可显示缩放与旋转手柄</div>
+            </div>
+            <div class="ticket-layer content-layer" aria-hidden="true">
+              <div class="ticket-poem"><span class="poem-right" id="poemRight">逍遥此身君子意</span><span class="poem-left" id="poemLeft">一壶温酒向长空</span></div>
+              <div class="role-id" id="roleIdText">全平台一个号</div>
+              <div class="faction-pinyin" id="pinyinText">CANGJIAN</div>
+              <img class="faction-logo" id="factionLogo" src="门派信息/藏剑.png" alt="藏剑门派标志">
+              <div class="ticket-value faction-value" id="factionValue">藏剑</div>
+              <div class="ticket-value level-value" id="levelValue">130级</div>
+              <div class="ticket-value camp-value" id="campValue">恶人谷</div>
+              <div class="ticket-value server-value" id="serverValue">长安城</div>
+            </div>
+          </div>
+        </div>
+        <div class="photo-transform-layer" id="photoTransformLayer" aria-hidden="true"></div>
+        <p class="layer-note"><i></i><span>Mask 角色图位于 Middle 装饰层上方；预览与导出使用同一套分层合成。</span></p>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const CANVAS = { width: 2000, height: 5500, mask: { left: 113, top: 225, right: 1904, bottom: 3494 } };
+      const factionData = [
+        { name: '少林', pinyin: 'SHAOLIN', color: '#fae28a', poem: ['佛音亦有豪情意', '天下武功出少林'] },
+        { name: '万花', pinyin: 'WANHUA', color: '#9080a7', poem: ['不求独避风雨外', '只笑桃源非梦中'] },
+        { name: '天策', pinyin: 'TIANCE', color: '#d03537', poem: ['尽诛宵小天策义', '长枪独守大唐魂'] },
+        { name: '纯阳', pinyin: 'CHUNYANG', color: '#72d2fd', poem: ['只问真君何处有', '不向江湖寻剑仙'] },
+        { name: '七秀', pinyin: 'QIXIU', color: '#f27f94', poem: ['画廊绣舫霓裳舞', '小桥流水叶娉婷'] },
+        { name: '五毒', pinyin: 'WUDU', color: '#665483', poem: ['世人皆惧断肠物', '不见最毒在人心'] },
+        { name: '唐门', pinyin: 'TANGMEN', color: '#162579', poem: ['针翎钉棘十指牵', '暴雨飞星乾坤颠'] },
+        { name: '藏剑', pinyin: 'CANGJIAN', color: '#f7de5a', poem: ['逍遥此身君子意', '一壶温酒向长空'] },
+        { name: '丐帮', pinyin: 'GAIBANG', color: '#be9f84', poem: ['散罢千金未束手', '餐风吞酒不寂寥'] },
+        { name: '明教', pinyin: 'MINGJIAO', color: '#e0614f', poem: ['日月同辉出乱世', '光明圣火盼东归'] },
+        { name: '苍云', pinyin: 'CANGYUN', color: '#464646', poem: ['黄泉作酒酬兄弟', '战尽狂沙血未干'] },
+        { name: '长歌', pinyin: 'CHANGGE', color: '#a9e4cf', poem: ['千古文人侠客梦', '肯将碧血写丹青'] },
+        { name: '霸刀', pinyin: 'BADAO', color: '#625d85', poem: ['刀光起处鲸吞海', '誓将浮名敬死生'] },
+        { name: '蓬莱', pinyin: 'PENGLAI', color: '#80bdcf', poem: ['古来侠客俱已矣', '天下谁人共萧骚'] },
+        { name: '凌雪阁', pinyin: 'LINGXUE', color: '#bd404a', poem: ['此身未悔补天裂', '哪问青史载浮沉'] },
+        { name: '衍天宗', pinyin: 'YANTIAN', color: '#a39bef', poem: ['不求一世红尘梦', '但问千年月朗稀'] },
+        { name: '药宗', pinyin: 'YAOZONG', color: '#398078', poem: ['人间几度披霜雪', '留春与君最萦思'] },
+        { name: '刀宗', pinyin: 'DAOZONG', color: '#5f8ccd', poem: ['凌云百战砺心铁', '修得孤锋照此生'] },
+        { name: '万灵', pinyin: 'WANLING', color: '#d7bc77', poem: ['合神成契同归去', '山海与游赴苍冥'] },
+        { name: '段氏', pinyin: 'DUANSHI', color: '#c8a46b', poem: ['世第含章远逐鹿', '周天风劲予逍遥'] }
+      ].map(item => ({ ...item, logo: `门派信息/${item.name}.png` }));
+
+      const els = {
+        preview: document.querySelector('.preview'), stageShell: document.getElementById('stageShell'), stage: document.getElementById('ticketStage'), photoLayer: document.getElementById('photoLayer'), photoCanvas: document.getElementById('photoCanvas'), middleCanvas: document.getElementById('middleCanvas'), photoTransformLayer: document.getElementById('photoTransformLayer'), characterPhoto: document.getElementById('characterPhoto'),
+        uploadZone: document.getElementById('uploadZone'), photoInput: document.getElementById('photoInput'), uploadTitle: document.getElementById('uploadTitle'),
+        zoomInput: document.getElementById('zoomInput'), zoomOutput: document.getElementById('zoomOutput'), resetPhotoButton: document.getElementById('resetPhotoButton'), clearPhotoButton: document.getElementById('clearPhotoButton'),
+        frostColorInput: document.getElementById('frostColorInput'), frostColorOutput: document.getElementById('frostColorOutput'), shadowXInput: document.getElementById('shadowXInput'), shadowXOutput: document.getElementById('shadowXOutput'), shadowYInput: document.getElementById('shadowYInput'), shadowYOutput: document.getElementById('shadowYOutput'), shadowBlurInput: document.getElementById('shadowBlurInput'), shadowBlurOutput: document.getElementById('shadowBlurOutput'), shadowOpacityInput: document.getElementById('shadowOpacityInput'), shadowOpacityOutput: document.getElementById('shadowOpacityOutput'),
+        factionSelect: document.getElementById('factionSelect'), factionColorInput: document.getElementById('factionColorInput'), factionColorOutput: document.getElementById('factionColorOutput'), roleIdInput: document.getElementById('roleIdInput'), pinyinInput: document.getElementById('pinyinInput'), poemRightInput: document.getElementById('poemRightInput'), poemLeftInput: document.getElementById('poemLeftInput'),
+        levelInput: document.getElementById('levelInput'), campInput: document.getElementById('campInput'), serverInput: document.getElementById('serverInput'),
+        poemRight: document.getElementById('poemRight'), poemLeft: document.getElementById('poemLeft'), roleIdText: document.getElementById('roleIdText'), pinyinText: document.getElementById('pinyinText'),
+        factionLogo: document.getElementById('factionLogo'), factionValue: document.getElementById('factionValue'), levelValue: document.getElementById('levelValue'), campValue: document.getElementById('campValue'), serverValue: document.getElementById('serverValue'),
+        downloadButton: document.getElementById('downloadButton')
+      };
+
+      const state = {
+        faction: factionData.find(item => item.name === '藏剑'), factionColor: '#f7de5a', customFactionColors: {}, photoImage: null, photoUrl: '', photoIsObjectUrl: false, baseWidth: 0, baseHeight: 0, photoX: 0, photoY: 0, scale: 1, rotation: 0,
+        selected: false, moving: null, transforming: null, transformBox: null, previewZoom: 1, previewPan: null,
+        frostColor: '#3d5d78', shadowX: 8, shadowY: 5, shadowBlur: 2, shadowOpacity: .5
+      };
+      const assets = {};
+
+      function loadImage(source) {
+        return new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = () => reject(new Error(`素材无法加载：${source}`));
+          image.src = source;
+        });
+      }
+
+      function safeText(value, fallback = '—') { return value.trim() || fallback; }
+      function hexToRgb(hex) {
+        const normalized = hex.replace('#', '');
+        const value = Number.parseInt(normalized.length === 3 ? normalized.split('').map(character => character + character).join('') : normalized, 16);
+        return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
+      }
+      function renderSurface() {
+        els.stage.style.setProperty('--frost-color', state.frostColor);
+        els.stage.style.setProperty('--body-shadow-x', `${state.shadowX}px`);
+        els.stage.style.setProperty('--body-shadow-y', `${state.shadowY}px`);
+        els.stage.style.setProperty('--body-shadow-blur', `${state.shadowBlur}px`);
+        els.stage.style.setProperty('--body-shadow-opacity', state.shadowOpacity);
+        els.frostColorOutput.textContent = state.frostColor.toUpperCase();
+        els.shadowXOutput.textContent = `${state.shadowX} px`;
+        els.shadowYOutput.textContent = `${state.shadowY} px`;
+        els.shadowBlurOutput.textContent = `${state.shadowBlur} px`;
+        els.shadowOpacityOutput.textContent = `${Math.round(state.shadowOpacity * 100)}%`;
+      }
+      function currentText() {
+        return {
+          roleId: safeText(els.roleIdInput.value), pinyin: safeText(els.pinyinInput.value).toUpperCase(), poemRight: safeText(els.poemRightInput.value, ''), poemLeft: safeText(els.poemLeftInput.value, ''),
+          faction: state.faction.name, level: safeText(els.levelInput.value), camp: safeText(els.campInput.value), server: safeText(els.serverInput.value)
+        };
+      }
+
+      function renderText() {
+        const text = currentText();
+        els.poemRight.textContent = text.poemRight;
+        els.poemLeft.textContent = text.poemLeft;
+        els.roleIdText.textContent = text.roleId;
+        const characterCount = Math.max(1, [...text.roleId].length);
+        els.roleIdText.style.setProperty('--role-id-size', `${Math.min(12.1, 59 / characterCount)}cqw`);
+        els.pinyinText.textContent = text.pinyin;
+        els.factionValue.textContent = text.faction;
+        els.levelValue.textContent = text.level;
+        els.campValue.textContent = text.camp;
+        els.serverValue.textContent = text.server;
+      }
+
+      function renderPhoto() {
+        els.stage.style.setProperty('--photo-left', `${(CANVAS.mask.left + (CANVAS.mask.right - CANVAS.mask.left) / 2 + state.photoX) / CANVAS.width * 100}%`);
+        els.stage.style.setProperty('--photo-top', `${(CANVAS.mask.top + (CANVAS.mask.bottom - CANVAS.mask.top) / 2 + state.photoY) / CANVAS.height * 100}%`);
+        els.stage.style.setProperty('--photo-scale', state.scale);
+        els.characterPhoto.style.width = `${state.baseWidth / CANVAS.width * 100}%`;
+        els.characterPhoto.style.height = 'auto';
+        els.photoLayer.classList.toggle('has-photo', Boolean(state.photoImage));
+        els.photoLayer.classList.toggle('selected', Boolean(state.photoImage && state.selected));
+        els.zoomInput.value = Math.round(state.scale * 100);
+        els.zoomOutput.value = `${Math.round(state.scale * 100)}%`;
+        els.zoomOutput.textContent = `${Math.round(state.scale * 100)}%`;
+        paintPhotoLayer();
+        updateTransformBox();
+      }
+
+      function resetPhoto() {
+        if (!state.photoImage) return;
+        const maskWidth = CANVAS.mask.right - CANVAS.mask.left;
+        const maskHeight = CANVAS.mask.bottom - CANVAS.mask.top;
+        const ratio = state.photoImage.naturalWidth / state.photoImage.naturalHeight;
+        if (maskWidth / maskHeight > ratio) { state.baseWidth = maskWidth; state.baseHeight = maskWidth / ratio; }
+        else { state.baseHeight = maskHeight; state.baseWidth = maskHeight * ratio; }
+        state.photoX = 0; state.photoY = 0; state.scale = 1; state.rotation = 0;
+        renderPhoto();
+      }
+
+      async function applyPhotoSource(url, label, isObjectUrl = false) {
+        const image = await loadImage(url);
+        if (state.photoUrl && state.photoIsObjectUrl) URL.revokeObjectURL(state.photoUrl);
+        state.photoUrl = url; state.photoIsObjectUrl = isObjectUrl; state.photoImage = image; state.selected = true; state.rotation = 0;
+        els.characterPhoto.src = url; els.uploadTitle.textContent = label;
+        resetPhoto(); renderTransformControls();
+      }
+
+      async function setPhoto(file) {
+        if (!file || !file.type.startsWith('image/')) return;
+        const url = URL.createObjectURL(file);
+        try {
+          const label = file.name.length > 18 ? `${file.name.slice(0, 17)}…` : file.name;
+          await applyPhotoSource(url, label, true);
+        } catch (error) {
+          URL.revokeObjectURL(url);
+          alert('图片读取失败，请选择 PNG、JPG、WebP 等常见图片格式。');
+        }
+      }
+
+      async function setDefaultPhoto() {
+        try { await applyPhotoSource('yunqisongzijiang.jpg', '默认角色图片'); }
+        catch (error) { console.warn('默认角色图未加载', error); }
+      }
+
+      function clearPhoto() {
+        if (state.photoUrl && state.photoIsObjectUrl) URL.revokeObjectURL(state.photoUrl);
+        state.photoImage = null; state.photoUrl = ''; state.photoIsObjectUrl = false; state.baseWidth = 0; state.baseHeight = 0; state.photoX = 0; state.photoY = 0; state.scale = 1; state.rotation = 0; state.selected = false; state.moving = null; state.transforming = null;
+        els.characterPhoto.removeAttribute('src'); els.photoInput.value = ''; els.uploadTitle.textContent = '上传角色图片'; renderPhoto();
+        renderTransformControls();
+      }
+
+      function applyFactionColor(color) {
+        state.factionColor = color;
+        document.documentElement.style.setProperty('--accent', color);
+        document.documentElement.style.setProperty('--accent-soft', `${color}29`);
+        els.stage.style.setProperty('--faction-color', color);
+        els.factionColorInput.value = color;
+        els.factionColorOutput.textContent = color.toUpperCase();
+        paintMiddleLayer();
+      }
+
+      function setFactionColor(color) {
+        state.customFactionColors[state.faction.name] = color;
+        applyFactionColor(color);
+      }
+
+      async function setFaction(name) {
+        const faction = factionData.find(item => item.name === name) || factionData[0];
+        state.faction = faction;
+        applyFactionColor(state.customFactionColors[faction.name] || faction.color);
+        els.poemRightInput.value = faction.poem[0]; els.poemLeftInput.value = faction.poem[1]; els.pinyinInput.value = faction.pinyin;
+        els.factionLogo.src = faction.logo; els.factionLogo.alt = `${faction.name}门派标志`;
+        renderText();
+        try { assets.factionLogo = await loadImage(faction.logo); } catch { assets.factionLogo = null; }
+      }
+
+      function stagePoint(event) {
+        const rect = els.stage.getBoundingClientRect();
+        return { x: (event.clientX - rect.left) / rect.width * CANVAS.width, y: (event.clientY - rect.top) / rect.height * CANVAS.height };
+      }
+
+      const previewMedia = window.matchMedia('(min-width: 981px)');
+      function clamp(value, minimum, maximum) { return Math.min(maximum, Math.max(minimum, value)); }
+      function syncPreviewSize() {
+        if (!previewMedia.matches) {
+          els.stage.style.removeProperty('width');
+          requestAnimationFrame(updateTransformBox);
+          return;
+        }
+        const availableWidth = Math.max(96, els.stageShell.clientWidth - 80);
+        const availableHeight = Math.max(264, els.stageShell.clientHeight - 80);
+        const fittedWidth = Math.min(availableWidth, availableHeight * CANVAS.width / CANVAS.height);
+        els.stage.style.width = `${Math.round(Math.max(96, fittedWidth) * state.previewZoom)}px`;
+        requestAnimationFrame(updateTransformBox);
+      }
+
+      function zoomPreview(event) {
+        if (!previewMedia.matches) return;
+        event.preventDefault();
+        const scaleStep = Math.exp(-event.deltaY * 0.0015);
+        state.previewZoom = clamp(state.previewZoom * scaleStep, .55, 3);
+        syncPreviewSize();
+      }
+
+      function beginPreviewPan(event) {
+        if (event.button !== 0 || event.target.closest?.('.transform-handle') || state.moving || state.transforming) return;
+        if (!event.target.closest?.('#ticketStage')) return;
+        const point = stagePoint(event);
+        const isInPhotoMask = state.photoImage && point.x >= CANVAS.mask.left && point.x <= CANVAS.mask.right && point.y >= CANVAS.mask.top && point.y <= CANVAS.mask.bottom;
+        if (isInPhotoMask) return;
+        state.previewPan = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, scrollLeft: els.stageShell.scrollLeft, scrollTop: els.stageShell.scrollTop };
+        els.stageShell.setPointerCapture?.(event.pointerId);
+        els.stageShell.classList.add('panning');
+        event.preventDefault();
+      }
+
+      function movePreviewPan(event) {
+        const pan = state.previewPan;
+        if (!pan || pan.pointerId !== event.pointerId) return;
+        els.stageShell.scrollLeft = pan.scrollLeft - (event.clientX - pan.x);
+        els.stageShell.scrollTop = pan.scrollTop - (event.clientY - pan.y);
+        updateTransformBox();
+        event.preventDefault();
+      }
+
+      function endPreviewPan(event) {
+        if (!state.previewPan || (event && state.previewPan.pointerId !== event.pointerId)) return;
+        state.previewPan = null;
+        els.stageShell.classList.remove('panning');
+      }
+
+      function rotateVector(x, y, radians) {
+        const cosine = Math.cos(radians); const sine = Math.sin(radians);
+        return { x: cosine * x - sine * y, y: sine * x + cosine * y };
+      }
+
+      function photoCenter() {
+        return { x: (CANVAS.mask.left + CANVAS.mask.right) / 2 + state.photoX, y: (CANVAS.mask.top + CANVAS.mask.bottom) / 2 + state.photoY };
+      }
+
+      function photoSize() { return { width: state.baseWidth * state.scale, height: state.baseHeight * state.scale }; }
+
+      function selectPhoto(selected) {
+        state.selected = Boolean(selected && state.photoImage);
+        els.photoLayer.classList.toggle('selected', state.selected);
+        renderTransformControls();
+      }
+
+      function updateTransformBox() {
+        if (!state.photoImage || !state.selected || !state.transformBox) return;
+        const { width, height } = photoSize(); const center = photoCenter();
+        const stageRect = els.stage.getBoundingClientRect();
+        const previewRect = els.preview.getBoundingClientRect();
+        const scaleX = stageRect.width / CANVAS.width;
+        const scaleY = stageRect.height / CANVAS.height;
+        state.transformBox.style.left = `${stageRect.left - previewRect.left + (center.x - width / 2) * scaleX}px`;
+        state.transformBox.style.top = `${stageRect.top - previewRect.top + (center.y - height / 2) * scaleY}px`;
+        state.transformBox.style.width = `${width * scaleX}px`;
+        state.transformBox.style.height = `${height * scaleY}px`;
+        state.transformBox.style.transform = `rotate(${state.rotation}deg)`;
+      }
+
+      function renderTransformControls() {
+        els.photoTransformLayer.innerHTML = ''; state.transformBox = null;
+        if (!state.photoImage || !state.selected) return;
+        const box = document.createElement('div'); box.className = 'transform-box';
+        const labels = { nw: '左上角缩放', ne: '右上角缩放', se: '右下角缩放', sw: '左下角缩放', 'rotate-top': '从上边旋转', 'rotate-right': '从右边旋转', 'rotate-bottom': '从下边旋转', 'rotate-left': '从左边旋转' };
+        Object.entries(labels).forEach(([handleType, label]) => {
+          const handle = document.createElement('button');
+          handle.type = 'button'; handle.className = 'transform-handle'; handle.dataset.handle = handleType; handle.setAttribute('aria-label', label);
+          handle.addEventListener('pointerdown', event => beginPhotoTransform(event, handleType));
+          box.appendChild(handle);
+        });
+        els.photoTransformLayer.appendChild(box); state.transformBox = box; updateTransformBox();
+      }
+
+      function beginPhotoTransform(event, handleType) {
+        if (!state.photoImage || event.button !== 0) return;
+        const { width, height } = photoSize(); const center = photoCenter();
+        const transform = { pointerId: event.pointerId, handleType, startScale: state.scale, startRotation: state.rotation, width, height, center };
+        if (handleType.startsWith('rotate-')) {
+          const point = stagePoint(event); transform.startPointerAngle = Math.atan2(point.y - center.y, point.x - center.x);
+        } else {
+          const signs = { nw: { x: -1, y: -1 }, ne: { x: 1, y: -1 }, se: { x: 1, y: 1 }, sw: { x: -1, y: 1 } };
+          transform.sign = signs[handleType];
+          const anchorOffset = rotateVector(-transform.sign.x * width / 2, -transform.sign.y * height / 2, state.rotation * Math.PI / 180);
+          transform.anchor = { x: center.x + anchorOffset.x, y: center.y + anchorOffset.y };
+        }
+        state.transforming = transform; event.currentTarget.setPointerCapture?.(event.pointerId); event.preventDefault(); event.stopPropagation();
+      }
+
+      function updatePhotoTransform(event) {
+        const transform = state.transforming;
+        if (!transform || transform.pointerId !== event.pointerId || !state.photoImage) return false;
+        const point = stagePoint(event);
+        if (transform.handleType.startsWith('rotate-')) {
+          const angle = Math.atan2(point.y - transform.center.y, point.x - transform.center.x);
+          let rotation = transform.startRotation + (angle - transform.startPointerAngle) * 180 / Math.PI;
+          if (event.shiftKey) rotation = Math.round(rotation / 15) * 15;
+          state.rotation = rotation;
+        } else {
+          const radians = transform.startRotation * Math.PI / 180;
+          const local = rotateVector(point.x - transform.anchor.x, point.y - transform.anchor.y, -radians);
+          const widthRatio = transform.sign.x * local.x / transform.width;
+          const heightRatio = transform.sign.y * local.y / transform.height;
+          const scaleRatio = Math.max(.03 / transform.startScale, Math.min(20 / transform.startScale, Math.max(widthRatio, heightRatio)));
+          const nextScale = transform.startScale * scaleRatio;
+          const nextWidth = transform.width * scaleRatio; const nextHeight = transform.height * scaleRatio;
+          const centerOffset = rotateVector(transform.sign.x * nextWidth / 2, transform.sign.y * nextHeight / 2, radians);
+          const nextCenter = { x: transform.anchor.x + centerOffset.x, y: transform.anchor.y + centerOffset.y };
+          state.scale = nextScale;
+          state.photoX = nextCenter.x - (CANVAS.mask.left + CANVAS.mask.right) / 2;
+          state.photoY = nextCenter.y - (CANVAS.mask.top + CANVAS.mask.bottom) / 2;
+        }
+        renderPhoto(); return true;
+      }
+
+      function beginPhotoMove(event) {
+        if (event.target.closest?.('.transform-handle') || event.button !== 0) return;
+        if (!state.photoImage) { selectPhoto(false); return; }
+        const point = stagePoint(event);
+        const isWithinMaskBounds = point.x >= CANVAS.mask.left && point.x <= CANVAS.mask.right && point.y >= CANVAS.mask.top && point.y <= CANVAS.mask.bottom;
+        if (!isWithinMaskBounds) { selectPhoto(false); return; }
+        selectPhoto(true);
+        state.moving = { pointerId: event.pointerId, x: point.x, y: point.y, photoX: state.photoX, photoY: state.photoY };
+        els.photoLayer.setPointerCapture?.(event.pointerId); els.stage.classList.add('dragging'); event.preventDefault();
+      }
+
+      function movePhoto(event) {
+        if (updatePhotoTransform(event)) { event.preventDefault(); return; }
+        const moving = state.moving;
+        if (!moving || moving.pointerId !== event.pointerId) return;
+        const point = stagePoint(event); state.photoX = moving.photoX + point.x - moving.x; state.photoY = moving.photoY + point.y - moving.y; renderPhoto();
+      }
+
+      function endPhotoMove(event) {
+        if (!state.moving || (event && state.moving.pointerId !== event.pointerId)) return;
+        state.moving = null; els.stage.classList.remove('dragging');
+      }
+
+      function endPhotoTransform(event) {
+        if (!state.transforming || (event && state.transforming.pointerId !== event.pointerId)) return;
+        state.transforming = null;
+      }
+
+      function updateZoom(value) { state.scale = Math.max(.35, Math.min(2.6, Number(value) / 100)); renderPhoto(); }
+
+      function drawFittedText(context, text, centerX, baselineY, maxWidth, initialSize, color, family = 'KaiTi, STKaiti, serif') {
+        let size = initialSize;
+        context.textAlign = 'center'; context.textBaseline = 'alphabetic';
+        do { context.font = `900 ${size}px ${family}`; size -= 2; } while (context.measureText(text).width > maxWidth && size > 20);
+        context.fillStyle = color; context.fillText(text, centerX, baselineY);
+      }
+
+      function drawLeftFittedText(context, text, leftX, baselineY, maxWidth, initialSize, color, family = 'KaiTi, STKaiti, serif') {
+        let size = initialSize;
+        context.textAlign = 'left'; context.textBaseline = 'alphabetic';
+        do { context.font = `900 ${size}px ${family}`; size -= 2; } while (context.measureText(text).width > maxWidth && size > 20);
+        context.fillStyle = color; context.fillText(text, leftX, baselineY);
+      }
+
+      function drawVerticalText(context, text, centerX, top, color) {
+        context.fillStyle = color; context.font = '700 61px KaiTi, STKaiti, serif'; context.textAlign = 'center'; context.textBaseline = 'top';
+        [...text].forEach((character, index) => context.fillText(character, centerX, top + index * 72));
+      }
+
+      function makeTintedMiddle(color) {
+        const layer = document.createElement('canvas'); layer.width = CANVAS.width; layer.height = CANVAS.height;
+        const context = layer.getContext('2d'); context.drawImage(assets.middle, 0, 0, CANVAS.width, CANVAS.height); context.globalCompositeOperation = 'source-in'; context.fillStyle = color; context.fillRect(0, 0, CANVAS.width, CANVAS.height);
+        return layer;
+      }
+
+      function drawFrostedBackground(context) {
+        const { r, g, b } = hexToRgb(state.frostColor);
+        context.fillStyle = `rgb(${r}, ${g}, ${b})`; context.fillRect(0, 0, CANVAS.width, CANVAS.height);
+        const sheen = context.createLinearGradient(0, 0, CANVAS.width, CANVAS.height);
+        sheen.addColorStop(0, 'rgba(255,255,255,.56)'); sheen.addColorStop(.46, 'rgba(255,255,255,.09)'); sheen.addColorStop(1, 'rgba(255,255,255,.34)');
+        context.fillStyle = sheen; context.fillRect(0, 0, CANVAS.width, CANVAS.height);
+        const bloom = context.createRadialGradient(CANVAS.width * .18, CANVAS.height * .15, 0, CANVAS.width * .18, CANVAS.height * .15, CANVAS.width * .58);
+        bloom.addColorStop(0, 'rgba(255,255,255,.42)'); bloom.addColorStop(1, 'rgba(255,255,255,0)'); context.fillStyle = bloom; context.fillRect(0, 0, CANVAS.width, CANVAS.height);
+      }
+
+      function drawBodyWithShadow(context) {
+        context.save(); context.shadowColor = `rgba(18, 13, 27, ${state.shadowOpacity})`; context.shadowOffsetX = state.shadowX; context.shadowOffsetY = state.shadowY; context.shadowBlur = state.shadowBlur;
+        context.drawImage(assets.body, 0, 0, CANVAS.width, CANVAS.height); context.restore();
+      }
+
+      function drawMaskedPhoto(context) {
+        if (!state.photoImage) return;
+        const photoLayer = document.createElement('canvas'); photoLayer.width = CANVAS.width; photoLayer.height = CANVAS.height;
+        const photoContext = photoLayer.getContext('2d'); const center = photoCenter(); const { width, height } = photoSize();
+        photoContext.save(); photoContext.translate(center.x, center.y); photoContext.rotate(state.rotation * Math.PI / 180); photoContext.drawImage(state.photoImage, -width / 2, -height / 2, width, height); photoContext.restore();
+        photoContext.globalCompositeOperation = 'destination-in'; photoContext.drawImage(assets.mask, 0, 0, CANVAS.width, CANVAS.height); photoContext.globalCompositeOperation = 'source-over';
+        context.drawImage(photoLayer, 0, 0);
+      }
+
+      function paintPhotoLayer() {
+        if (!assets.mask) return;
+        const context = els.photoCanvas.getContext('2d');
+        context.clearRect(0, 0, CANVAS.width, CANVAS.height);
+        if (!state.photoImage) return;
+        const center = photoCenter(); const { width, height } = photoSize();
+        context.save(); context.translate(center.x, center.y); context.rotate(state.rotation * Math.PI / 180); context.drawImage(state.photoImage, -width / 2, -height / 2, width, height); context.restore();
+        context.globalCompositeOperation = 'destination-in';
+        context.drawImage(assets.mask, 0, 0, CANVAS.width, CANVAS.height);
+        context.globalCompositeOperation = 'source-over';
+      }
+
+      function paintMiddleLayer() {
+        if (!assets.middle) return;
+        const context = els.middleCanvas.getContext('2d');
+        context.clearRect(0, 0, CANVAS.width, CANVAS.height);
+        context.drawImage(assets.middle, 0, 0, CANVAS.width, CANVAS.height);
+        context.globalCompositeOperation = 'source-in';
+        context.fillStyle = state.factionColor;
+        context.fillRect(0, 0, CANVAS.width, CANVAS.height);
+        context.globalCompositeOperation = 'source-over';
+      }
+
+      async function exportTicket() {
+        els.downloadButton.disabled = true; els.downloadButton.textContent = '正在生成…';
+        try {
+          const canvas = document.createElement('canvas'); canvas.width = CANVAS.width; canvas.height = CANVAS.height;
+          const context = canvas.getContext('2d'); context.imageSmoothingEnabled = true; context.imageSmoothingQuality = 'high';
+          drawFrostedBackground(context); drawBodyWithShadow(context); context.drawImage(makeTintedMiddle(state.factionColor), 0, 0); drawMaskedPhoto(context);
+          const text = currentText();
+          drawVerticalText(context, text.poemRight, 1786, 193, '#171310'); drawVerticalText(context, text.poemLeft, 1700, 193, '#171310');
+          context.font = '175px Georgia, "Times New Roman", serif'; context.fillStyle = `${state.factionColor}42`; context.textAlign = 'center'; context.textBaseline = 'alphabetic'; context.fillText(text.pinyin, 1000, 3940, 1240);
+          drawFittedText(context, text.roleId, 1020, 3835, 1320, 272, '#080807', 'LiXuke, 李旭科经典行书, STXinwei, 华文新魏, STKaiti, KaiTi, serif');
+          if (assets.factionLogo) context.drawImage(assets.factionLogo, 900, 3960, 200, 238);
+          drawLeftFittedText(context, text.faction, 568, 4678, 202, 86, state.factionColor);
+          drawLeftFittedText(context, text.level, 1356, 4678, 300, 86, state.factionColor);
+          drawLeftFittedText(context, text.camp, 573, 5077, 330, 82, state.factionColor);
+          drawLeftFittedText(context, text.server, 1353, 5077, 334, 82, state.factionColor);
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+          if (!blob) throw new Error('浏览器无法生成图片');
+          const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${text.roleId}-${state.faction.name}票根.png`; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        } catch (error) {
+          alert('导出失败，请刷新页面后重试。');
+        } finally { els.downloadButton.disabled = false; els.downloadButton.textContent = '导出 PNG'; }
+      }
+
+      function bindInputs() {
+        [els.roleIdInput, els.pinyinInput, els.poemRightInput, els.poemLeftInput, els.levelInput, els.campInput, els.serverInput].forEach(input => {
+          input.addEventListener('input', renderText); input.addEventListener('change', renderText);
+        });
+        els.factionSelect.addEventListener('change', () => setFaction(els.factionSelect.value));
+        els.factionColorInput.addEventListener('input', () => setFactionColor(els.factionColorInput.value));
+        els.photoInput.addEventListener('change', () => setPhoto(els.photoInput.files[0]));
+        els.resetPhotoButton.addEventListener('click', resetPhoto); els.clearPhotoButton.addEventListener('click', clearPhoto); els.zoomInput.addEventListener('input', () => updateZoom(els.zoomInput.value));
+        els.frostColorInput.addEventListener('input', () => { state.frostColor = els.frostColorInput.value; renderSurface(); });
+        [
+          [els.shadowXInput, 'shadowX', value => Number(value)], [els.shadowYInput, 'shadowY', value => Number(value)],
+          [els.shadowBlurInput, 'shadowBlur', value => Number(value)], [els.shadowOpacityInput, 'shadowOpacity', value => Number(value) / 100]
+        ].forEach(([input, key, parse]) => input.addEventListener('input', () => { state[key] = parse(input.value); renderSurface(); }));
+        els.downloadButton.addEventListener('click', exportTicket);
+        els.stageShell.addEventListener('wheel', zoomPreview, { passive: false });
+        els.stageShell.addEventListener('scroll', updateTransformBox, { passive: true });
+        els.stageShell.addEventListener('pointerdown', beginPreviewPan);
+        new ResizeObserver(syncPreviewSize).observe(els.stageShell);
+        previewMedia.addEventListener('change', syncPreviewSize);
+        els.stage.addEventListener('pointerdown', beginPhotoMove); window.addEventListener('pointermove', movePhoto); window.addEventListener('pointermove', movePreviewPan); window.addEventListener('pointerup', endPhotoMove); window.addEventListener('pointercancel', endPhotoMove); window.addEventListener('pointerup', endPhotoTransform); window.addEventListener('pointercancel', endPhotoTransform); window.addEventListener('pointerup', endPreviewPan); window.addEventListener('pointercancel', endPreviewPan);
+        ['dragenter', 'dragover'].forEach(type => els.uploadZone.addEventListener(type, event => { event.preventDefault(); els.uploadZone.classList.add('dragging'); }));
+        ['dragleave', 'drop'].forEach(type => els.uploadZone.addEventListener(type, event => { event.preventDefault(); els.uploadZone.classList.remove('dragging'); }));
+        els.uploadZone.addEventListener('drop', event => setPhoto(event.dataTransfer.files[0]));
+        els.stage.addEventListener('dragover', event => { event.preventDefault(); els.uploadZone.classList.add('dragging'); });
+        els.stage.addEventListener('dragleave', () => els.uploadZone.classList.remove('dragging'));
+        els.stage.addEventListener('drop', event => { event.preventDefault(); els.uploadZone.classList.remove('dragging'); setPhoto(event.dataTransfer.files[0]); });
+      }
+
+      async function init() {
+        factionData.forEach(faction => {
+          const option = document.createElement('option'); option.value = faction.name; option.textContent = faction.name; els.factionSelect.appendChild(option);
+        });
+        els.factionSelect.value = state.faction.name;
+        [assets.body, assets.middle, assets.mask] = await Promise.all([loadImage('Body.png'), loadImage('Middle.png'), loadImage('Mask.png')]);
+        if (document.fonts?.load) await document.fonts.load('700 272px "LiXuke"');
+        bindInputs(); renderSurface(); await setFaction(state.faction.name); renderText(); await setDefaultPhoto(); requestAnimationFrame(syncPreviewSize);
+      }
+
+      init().catch(error => { console.error(error); alert('票根素材加载失败，请确认页面与素材文件位于同一目录。'); });
+    })();
+  </script>
+</body>
+</html>
