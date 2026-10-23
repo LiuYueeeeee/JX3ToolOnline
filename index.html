@@ -47,7 +47,7 @@
     .tool-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 24px; padding: 10px 14px; color: white; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 9px; background: linear-gradient(135deg, #9277ff, #6749ea); transition: transform .16s ease, box-shadow .16s ease; }
     .tool-link:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(104, 73, 234, .32); }
     .tool-link::after { content: "→"; font-size: 16px; }
-    .roadmap { display: grid; min-height: 250px; place-items: center; padding: 24px; color: var(--muted); text-align: center; border-style: dashed; background: rgba(23, 27, 39, .58); }
+    .roadmap { display: grid; grid-column: 1 / -1; min-height: 150px; place-items: center; padding: 24px; color: var(--muted); text-align: center; border-style: dashed; background: rgba(23, 27, 39, .58); }
     .roadmap-icon { margin-bottom: 12px; color: #b5a5ff; font-size: 30px; }
     .roadmap strong { display: block; color: #dbe0ec; font-size: 15px; }
     .roadmap small { display: block; max-width: 250px; margin-top: 7px; line-height: 1.6; }
@@ -68,7 +68,7 @@
   <main class="app">
     <header class="topbar">
       <div class="brand"><div class="brand-mark">JX</div><div><strong>剑网3创作工具中心</strong><span>统一入口 · 高效完成每一次制作</span></div></div>
-      <span class="status">工具中心 · 01</span>
+      <span class="status">工具中心 · 02</span>
     </header>
     <section class="hero">
       <span class="hero-badge">创作工作流</span>
@@ -83,6 +83,12 @@
           <h3>模板海报工作台</h3>
           <p>从蒙版识别、图库填充到图层调节与图片导出，一站式完成模板海报制作。</p>
           <a class="tool-link" href="PSOnline/index.html">进入工作台</a>
+        </article>
+        <article class="tool-card">
+          <div class="tool-icon">票</div>
+          <h3>门派主题票根制作</h3>
+          <p>上传角色图，选择门派主题并编辑票根信息，制作可直接分享的剑网3主题票根。</p>
+          <a class="tool-link" href="TicketOnline/index.html">开始制作</a>
         </article>
         <article class="roadmap"><div><div class="roadmap-icon">＋</div><strong>更多工具即将加入</strong><small>后续可在此添加新的子页面入口，保持统一的工作流体验。</small></div></article>
       </div>
