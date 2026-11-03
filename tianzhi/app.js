@@ -419,12 +419,20 @@
   }
 
   function showApp() {
-    state.authorized = true;
-    $('#auth-view').hidden = true;
-    $('#app').hidden = false;
-    if (admin) $('#bottom-dock').hidden = false;
-    if (localDemo) $('#demo-ribbon').hidden = false;
-  }
+  state.authorized = true;
+
+  const authView = $('#auth-view');
+  if (authView) authView.hidden = true;
+
+  const app = $('#app');
+  if (app) app.hidden = false;
+
+  const bottomDock = $('#bottom-dock');
+  if (admin && bottomDock) bottomDock.hidden = false;
+
+  const demoRibbon = $('#demo-ribbon');
+  if (localDemo && demoRibbon) demoRibbon.hidden = false;
+}
 
   async function login(event) {
     event.preventDefault();
