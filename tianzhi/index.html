@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html lang="zh-CN">
 <head>
@@ -7,39 +8,327 @@
   <meta name="description" content="天旨速能视频交付清单">
   <title>天旨速能 · 视频交付清单 · 客户端</title>
   <link rel="stylesheet" href="./styles.css">
+
+  <style>
+    /* 密码验证页面 */
+    .password-gate {
+      position: fixed;
+      inset: 0;
+      z-index: 999999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: #17253e;
+    }
+
+    .password-gate[hidden] {
+      display: none !important;
+    }
+
+    .password-box {
+      width: 100%;
+      max-width: 360px;
+      padding: 38px 30px;
+      box-sizing: border-box;
+      border-radius: 20px;
+      background: #fff;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    }
+
+    .password-logo {
+      width: 58px;
+      height: 58px;
+      margin: 0 auto 18px;
+      border-radius: 16px;
+      background: #17253e;
+      color: #fff;
+      font-size: 30px;
+      line-height: 58px;
+      font-weight: bold;
+    }
+
+    .password-box h2 {
+      margin: 0;
+      color: #17253e;
+      font-size: 23px;
+    }
+
+    .password-box p {
+      color: #8792a3;
+      font-size: 13px;
+      margin: 10px 0 28px;
+    }
+
+    .password-box input {
+      box-sizing: border-box;
+      width: 100%;
+      height: 48px;
+      padding: 0 15px;
+      border: 1px solid #dce2eb;
+      border-radius: 10px;
+      outline: none;
+      font-size: 16px;
+      text-align: center;
+    }
+
+    .password-box input:focus {
+      border-color: #426ba8;
+    }
+
+    .password-box button {
+      width: 100%;
+      height: 48px;
+      margin-top: 16px;
+      border: none;
+      border-radius: 10px;
+      background: #17253e;
+      color: white;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    .password-box button:active {
+      opacity: .85;
+    }
+
+    #password-error {
+      min-height: 20px;
+      margin-top: 12px;
+      color: #dc4b4b;
+      font-size: 13px;
+    }
+  </style>
 </head>
+
 <body data-role="client">
+
+  <!-- 密码验证页面 -->
+  <div id="password-gate" class="password-gate">
+    <div class="password-box">
+      <div class="password-logo">天</div>
+      <h2>天旨速能</h2>
+      <p>VIDEO DELIVERY RECORD</p>
+
+      <input
+        id="access-password"
+        type="password"
+        placeholder="请输入访问密码"
+        maxlength="20"
+        autocomplete="off"
+      >
+
+      <button id="password-submit">验证并进入</button>
+
+      <div id="password-error" role="alert"></div>
+    </div>
+  </div>
+
+  <!-- 原有客户端页面 -->
   <div id="app" class="app" hidden>
-    <div id="demo-ribbon" class="demo-ribbon" hidden>本地演示模式 · 记录只保存在当前浏览器，不会与其他设备同步</div>
+
+    <div id="demo-ribbon" class="demo-ribbon" hidden>
+      本地演示模式 · 记录只保存在当前浏览器，不会与其他设备同步
+    </div>
+
     <header class="hero" id="hero">
       <div class="hero-top">
-        <div class="brand"><div class="brand-icon" id="brand-icon"></div><div class="brand-copy"><strong>天旨速能</strong><span>VIDEO DELIVERY RECORD</span></div></div>
-        <div class="topbar-actions"><span class="portal-chip">客户端</span></div>
+        <div class="brand">
+          <div class="brand-icon" id="brand-icon"></div>
+          <div class="brand-copy">
+            <strong>天旨速能</strong>
+            <span>VIDEO DELIVERY RECORD</span>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <span class="portal-chip">客户端</span>
+        </div>
       </div>
+
       <div class="project-kicker">当前项目 / CURRENT PROJECT</div>
       <h1 class="project-title">视频制作清单</h1>
     </header>
+
     <div id="dashboard">
+
       <div class="summary">
+
         <div class="summary-cards">
-          <div class="metric"><div class="metric-heading"><span class="metric-icon" id="count-icon"></span>终稿视频数量</div><div class="metric-number"><span id="count-num">0</span><small>个</small></div></div>
-          <div class="metric"><div class="metric-heading"><span class="metric-icon blue" id="time-icon"></span>终稿累计总时长</div><div class="metric-number"><span id="time-num">0</span><small>秒</small></div><div class="metric-foot" id="time-foot">合计 00:00 · 0秒</div></div>
+
+          <div class="metric">
+            <div class="metric-heading">
+              <span class="metric-icon" id="count-icon"></span>
+              终稿视频数量
+            </div>
+            <div class="metric-number">
+              <span id="count-num">0</span>
+              <small>个</small>
+            </div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-heading">
+              <span class="metric-icon blue" id="time-icon"></span>
+              终稿累计总时长
+            </div>
+            <div class="metric-number">
+              <span id="time-num">0</span>
+              <small>秒</small>
+            </div>
+            <div class="metric-foot" id="time-foot">
+              合计 00:00 · 0秒
+            </div>
+          </div>
+
         </div>
-        <div class="progress-panel"><div class="progress-main"><div class="progress-meta"><span>100 个终稿 · 交付进度</span><span><strong id="done-num">0</strong> / 100 个目标</span></div><div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div></div><div class="progress-score" id="progress-percent">0%</div></div>
+
+        <div class="progress-panel">
+          <div class="progress-main">
+            <div class="progress-meta">
+              <span>100 个终稿 · 交付进度</span>
+              <span>
+                <strong id="done-num">0</strong> / 100 个目标
+              </span>
+            </div>
+
+            <div class="progress-track">
+              <div class="progress-fill" id="progress-fill"></div>
+            </div>
+          </div>
+
+          <div class="progress-score" id="progress-percent">0%</div>
+        </div>
+
       </div>
+
       <main class="content">
-        <div class="section-top"><h2 class="section-title">视频明细</h2></div>
-        <div class="search"><span id="search-icon"></span><input id="search-input" type="search" placeholder="搜索主题、序号或周次" autocomplete="off"><button id="clear-search" class="clear-search" aria-label="清除搜索"></button></div>
-        <div class="result-line"><span id="result-left">读取记录中</span><span>按视频序号排列</span></div>
-        <div class="video-list" id="video-list"><div class="loading">正在加载视频清单…</div></div>
-        <div class="copyright">TIANZHISUNENG · DELIVERY LOG</div>
+
+        <div class="section-top">
+          <h2 class="section-title">视频明细</h2>
+        </div>
+
+        <div class="search">
+          <span id="search-icon"></span>
+          <input
+            id="search-input"
+            type="search"
+            placeholder="搜索主题、序号或周次"
+            autocomplete="off"
+          >
+          <button
+            id="clear-search"
+            class="clear-search"
+            aria-label="清除搜索"
+          ></button>
+        </div>
+
+        <div class="result-line">
+          <span id="result-left">读取记录中</span>
+          <span>按视频序号排列</span>
+        </div>
+
+        <div class="video-list" id="video-list">
+          <div class="loading">正在加载视频清单…</div>
+        </div>
+
+        <div class="copyright">
+          TIANZHISUNENG · DELIVERY LOG
+        </div>
+
       </main>
     </div>
-    <main id="detail-page" class="content is-detail detail-page" hidden><button class="back-link" id="back-list">← 返回视频清单</button><div id="detail-body" class="loading">正在加载详情…</div><div class="copyright">TIANZHISUNENG · DELIVERY LOG</div></main>
+
+    <!-- 视频详情页面 -->
+    <main id="detail-page" class="content is-detail detail-page" hidden>
+
+      <button class="back-link" id="back-list">
+        ← 返回视频清单
+      </button>
+
+      <div id="detail-body" class="loading">
+        正在加载详情…
+      </div>
+
+      <div class="copyright">
+        TIANZHISUNENG · DELIVERY LOG
+      </div>
+
+    </main>
+
   </div>
-  <div id="video-player" class="video-overlay"><div class="video-player-box"><button class="player-close" id="close-player">关闭播放器 ✕</button><video id="native-player" controls playsinline preload="metadata"></video></div></div>
+
+  <!-- 视频播放器 -->
+  <div id="video-player" class="video-overlay">
+    <div class="video-player-box">
+      <button class="player-close" id="close-player">
+        关闭播放器 ✕
+      </button>
+      <video
+        id="native-player"
+        controls
+        playsinline
+        preload="metadata"
+      ></video>
+    </div>
+  </div>
+
+  <!-- 消息提示 -->
   <div class="toast" id="toast" role="status"></div>
+
+  <!-- 配置文件 -->
   <script src="./config.js"></script>
+
+  <!-- 密码验证逻辑 -->
+  <script>
+    (function () {
+      const PASSWORD = "1234";
+
+      const gate = document.getElementById("password-gate");
+      const input = document.getElementById("access-password");
+      const button = document.getElementById("password-submit");
+      const error = document.getElementById("password-error");
+
+      let verified = false;
+
+      function verifyPassword() {
+        if (verified) return;
+
+        if (input.value === PASSWORD) {
+          verified = true;
+
+          // 隐藏密码页面
+          gate.hidden = true;
+
+          // 启动原有客户端程序
+          window.dispatchEvent(
+            new Event("client-password-verified")
+          );
+
+        } else {
+          error.textContent = "密码错误，请重新输入";
+          input.value = "";
+          input.focus();
+        }
+      }
+
+      button.addEventListener("click", verifyPassword);
+
+      input.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+          verifyPassword();
+        }
+      });
+
+      // 自动聚焦密码输入框
+      input.focus();
+    })();
+  </script>
+
+  <!-- 原有业务程序 -->
   <script src="./app.js"></script>
+
 </body>
 </html>
+```
