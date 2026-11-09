@@ -4,10 +4,10 @@
   "records": [
     {
       "num": 0,
-      "topic": "闪蒸_安装_室内",
+      "topic": "闪蒸_厂房_机器安装",
       "version": "演示稿",
       "duration": 15,
-      "week": 1,
+      "week": 0,
       "shareUrl": "https://pan.baidu.com/s/12qV7l0jU0oI7oCU2CgO0kQ?pwd=6666",
       "directUrl": "",
       "notes": "",
@@ -17,7 +17,7 @@
     },
     {
       "num": 1,
-      "topic": "喷雾干燥_室内_机器安装_空气回路",
+      "topic": "喷雾干燥_厂房_机器安装_空气回路",
       "version": "终稿",
       "duration": 15,
       "week": 1,
